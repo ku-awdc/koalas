@@ -1,11 +1,11 @@
 Package: koalas
-Title: What the Package Does (One Line, Title Case)
+Title: A Disease Model for Chlamydia in Koalas
 Version: 0.1.0-1
 Date: 2025-04-19
 Description: What the package does (one paragraph).
 Authors@R:
   c(
-    person(given="Joe", family="Bloggs", email="joe@bloggs.com", role=c("aut", "cre"))
+    person(given="Matt", family="Denwood", email="md@sund.ku.dk", role=c("aut", "cre"))
   )    
 License: GPL (>= 3)
 Encoding: UTF-8
