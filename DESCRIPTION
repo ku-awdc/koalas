@@ -16,7 +16,10 @@ Depends:
 Imports:
   rlang,
   dplyr,
-  tibble
+  tibble,
+  IPDMR,
+  checkmate,
+  R6
 Suggests: 
   neatpkg,
   knitr,
