@@ -57,13 +57,16 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       reversion_rt <- private$get_reversion_rate()
       qassert(reversion_rt, "R1")
 
-      ## Movement to and from V:
+      ## Movement to V and from V to S:
       vaccination_rt <- private$get_vaccination_rate()
       qassert(vaccination_rt, "R5")
       waning_rt <- private$get_waning_rate()
       qassert(waning_rt, "R1")
 
-      ##
+      ## Movement to Pt, Pf, Pc (one-way):
+      # (Pt is applied to I and D, Pf to S/R/V, Pc to D)
+
+      ## Movement to and from death (birth)
 
       mortalities <- private$get_mortality_rates()
       qassert(mortalities, "R5")
