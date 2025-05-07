@@ -3,13 +3,13 @@ a disease model for Chlamydia in koalas
 
 ## TODO
 
-- [] Replicate results from original paper (deterministic)
-- [] Implement stochastic version
+- [X] Replicate results from original paper (deterministic)
+- [X] Implement stochastic version
 - [] Verify core assumptions for new purpose
-- [] Add compartments Pt, Pf and Pc for test/removed true positive, false positives, and clinically diseased (taking into account se/sp)
+- [X] Add compartments Pt, Pf and Pc for test/removed true positive, false positives, and clinically diseased (taking into account se/sp)
 - [] Add active capture for testing/removal strategy (‘Actively’ capturing individuals (at various rate of capture, e.g., 5-6 koalas/day/team); screening by nucleic acid detection (unlikely perfect diagnostic sensitivity and specificity, turn-around time 48-72h); and removing (relocating) positive individuals)
 - [] Add passive capture for testing/remval of clinically diseased (‘Passively’ accessing reported diseased individuals (at various rate of reporting); screening by nucleic acid detection (unlikely perfect diagnostic sensitivity and specificity, turn-around time 48-72h); and removing (relocating) positive individuals)
-- [] Allow natural immunity and vaccination to have different rates - separate V and R
+- [X] Allow natural immunity and vaccination to have different rates - separate V and R
 - [] Migrate to C++ for running (not necessary but would be nice)
 
 ## Questions / assumptions to assess

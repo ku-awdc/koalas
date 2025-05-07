@@ -11,8 +11,11 @@ mlist <- IPDMR:::mlist
 #' Note: D is not a real state (and can be negative), it is just used to ensure
 #' that the books are balanced including birth/death
 #'
-#' @importFrom stats rmultinom quantile
 #' @import R6
+#' @importFrom IPDMR apply_rates
+#' @importFrom stats rmultinom quantile
+#' @import stringr
+#' @importFrom checkmate qassert assert_number
 #'
 #' @export
 KoalasR6 <- R6::R6Class("KoalasR6",
@@ -47,61 +50,105 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       assert_number(d_time, lower=0)
       private$check_state()
 
-      ## Progression through SIDRS:
-      transmission_rt <- private$get_transmission_rate()
-      qassert(transmission_rt, "R1")
-      disease_rt <- private$get_disease_rate()
-      qassert(disease_rt, "R1")
-      recovery_rt <- private$get_recovery_rate()
-      qassert(recovery_rt, "R1")
-      reversion_rt <- private$get_reversion_rate()
-      qassert(reversion_rt, "R1")
+      # Do birth and death separately, first:
+      if(is.finite(private$.carrying_capacity)){
+        mort_rt <- private$.mortality_natural + ((private$.birth_rate - private$.mortality_natural) * private$.N/private$.carrying_capacity)
+      }else{
+        mort_rt <- private$.mortality_natural
+      }
 
-      ## Movement to V and from V to S:
-      vaccination_rt <- private$get_vaccination_rate()
-      qassert(vaccination_rt, "R5")
-      waning_rt <- private$get_waning_rate()
-      qassert(waning_rt, "R1")
+      ## Birth (leaving Z):
+      zrt <- private$.birth_rate * (private$.N + ((private$.relative_fecundity-1.0) * private$.D))
+      if(private$.update_type=="deterministic"){
+        leave_Z <- zrt*d_time
+      }else if(private$.update_type=="stochastic"){
+        leave_Z <- rpois(1, zrt*d_time)
+      }else{
+        stop("Internal logic error")
+      }
 
-      ## Movement to Pt, Pf, Pc (one-way):
-      # (Pt is applied to I and D, Pf to S/R/V, Pc to D)
+      leave_S <- apply_rates(private$.S, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
+      leave_I <- apply_rates(private$.I, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
+      leave_D <- apply_rates(private$.D, private$.mortality_disease+mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
+      leave_R <- apply_rates(private$.R, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
+      leave_V <- apply_rates(private$.V, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
 
-      ## Movement to and from death (birth)
+      total_deaths <- leave_S+leave_I+leave_D+leave_R+leave_V
+      private$.Z <- private$.Z + total_deaths - leave_Z
+      private$.S <- private$.S + leave_Z - leave_S
+      private$.I <- private$.I - leave_I
+      private$.D <- private$.D - leave_D
+      private$.R <- private$.R - leave_R
+      private$.V <- private$.V - leave_V
+      private$.N <- private$.N + leave_Z - total_deaths
 
-      mortalities <- private$get_mortality_rates()
-      qassert(mortalities, "R5")
+      private$check_state()
 
-      new_S <-
 
+      # Then do infection dynamics:
+      mort_rt <- 0
+      leave_Z <- 0
+
+      ## Leaving S (infection or death):
+      if((private$.I + private$.D) == 0){
+        trans_rt <- private$.trans_external
+      }else{
+        trans_rt <- private$.trans_external + private$.beta * (private$.I + private$.D) / private$.N
+      }
       leave_S <- apply_rates(private$.S,
-        c(transmission, private$.vacc, mortalities["S"]),
-        d_time,
-        update_type = private$.update_type)
-      leave_I <- apply_rates(private$.I,
-        c(private$.omega*private$.numE, private$.repl),
-        d_time,
-        update_type = private$.update_type)
-      leave_I <- apply_rates(private$.I,
-        c(private$.gamma, private$.repl + private$.cull),
-        d_time,
-        update_type = private$.update_type)
-      leave_R <- apply_rates(private$.R,
-        private$.delta+private$.repl,
-        d_time,
-        update_type = private$.update_type)
+                             c(trans_rt, mort_rt),
+                             d_time,
+                             update_type = private$.update_type)
 
-      ## As for exercise 3B:
-      private$.S <- private$.S + leave_R[,1] + sum(leave_E[,2]) + leave_I[,2] - sum(leave_S)
-      private$.E <- private$.E + c(leave_S[,1], leave_E[-private$.numE,1]) - apply(leave_E,1,sum)
-      private$.I <- private$.I + leave_E[private$.numE,1] - sum(leave_I)
-      private$.R <- private$.R + leave_I[,1] + leave_S[,2] - sum(leave_R)
+      ## Leaving I (recovery/disease, or death):
+      leave_I <- apply_rates(private$.I,
+                             c(private$.sigma, mort_rt),
+                             d_time,
+                             update_type = private$.update_type)
+      ## The sigma (->D or ->S) must be separated afterwards:
+      stopifnot(dim(leave_I)==c(1,2))
+      if(private$.update_type=="deterministic"){
+        leave_I <- cbind(leave_I, leave_I[,1] * private$.acute_recovery_prob)
+      }else if(private$.update_type=="stochastic"){
+        leave_I <- cbind(leave_I, rbinom(nrow(leave_I), leave_I[,1], private$.acute_recovery_prob))
+      }else{
+        stop("Internal logic error")
+      }
+      leave_I[,1] <- leave_I[,1] - leave_I[,3]
+
+      ## Leaving D (recovery, disease-related mortality, general mortality):
+      leave_D <- apply_rates(private$.D,
+                             c(private$.recovery, 0, mort_rt),
+                             d_time,
+                             update_type = private$.update_type)
+
+      ## Leaving R (waning immunity, mortality):
+      leave_R <- apply_rates(private$.R,
+                             c(private$.waning_natural, mort_rt),
+                             d_time,
+                             update_type = private$.update_type)
+
+      ## Leaving V (waning immunity, mortality):
+      leave_V <- apply_rates(private$.V,
+                             c(private$.waning_vaccine, mort_rt),
+                             d_time,
+                             update_type = private$.update_type)
+
+      ## Bookkeeping - NB births/deaths will all be zero here!
+      total_deaths <- sum(leave_S[,2], leave_I[,2], leave_D[,2:3], leave_R[,2], leave_V[,2])
+      private$.Z <- private$.Z + total_deaths - leave_Z
+      private$.S <- private$.S + leave_Z + leave_R[,1] + leave_I[,3] + leave_V[,1] - sum(leave_S)
+      private$.I <- private$.I + leave_S[,1] - sum(leave_I)
+      private$.D <- private$.D + leave_I[,1] - sum(leave_D)
+      private$.R <- private$.R + leave_D[,1] - sum(leave_R)
+      private$.V <- private$.V - sum(leave_V)
+      private$.N <- private$.N + leave_Z - total_deaths
 
       private$.time <- private$.time + d_time
-
-      ## New safety feature:
       private$check_state()
 
       invisible(self)
+
     },
 
     #' @description
@@ -109,7 +156,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     #' @param add_time the additional time to add to the current time of the model
     #' @param d_time the desired time step (delta time)
     #' @return a data frame of the model state at each (new) time point
-    run = function(add_time, d_time){
+    run = function(add_time, d_time, thin=1){
       c(
         if(self$time==0) list(self$state) else list(),
         lapply(seq(self$time+d_time, self$time+add_time, by=d_time), function(x){
@@ -147,63 +194,86 @@ KoalasR6 <- R6::R6Class("KoalasR6",
 
   private = mlist(
 
-    ## Private fields - each has a trailing underscore to avoid name clashes:
-    .S = 99,
-    .E = numeric(), # The length of this is set at initialisation
-    .I = 1,
+    ## Private fields:
+    .Z = 0,
+    .S = 0,
+    .I = 0,
+    .D = 0,
     .R = 0,
-    .N = numeric(), # Set by reset_N method
-    .update_type = character(), # Set at initialisation
-    .numE = integer(), # Set at initialisation
-    .transmission_type = character(), # Set at initialisation
+    .V = 0,
+    .Pt = 0,
+    .Pf = 0,
+    .Pc = 0,
+    .N = 0,
+    .T = 0,
 
-    .time = 0,
-    .beta = 0.05,
-    .omega = 0.05,
-    .gamma = 0.025,
-    .delta = 0.005,
-    .vacc = 0.001,
-    .repl = 0.0001,
-    .cull = 0.002,
-    .trans_external = 0,
+    .update_type = character(), # Set at initialisation
+    .transmission_type = character(), # Set at initialisation
     .group_name = NA_character_,
 
-    ## To store state:
-    .saved_public = list(),
-    .saved_private = list(),
+    .time = 0,
+
+    .mortality_natural = 0.25,
+    .mortality_disease = 1.5,
+    .carrying_capacity = Inf,
+    .birth_rate = 0.38,
+    .relative_fecundity = 0.5,
+
+    .beta = 4.0,
+    .sigma = 1.33,
+    .acute_recovery_prob = 0.29,
+    .recovery = 0.05,
+    .waning_natural = 0.05,
+    .waning_vaccine = 0.05,
+
+    .trans_external = 0,
 
     ## Private methods:
     check_state = function(){
-      ## Use the new compartment_rule private utility method (see below):
-      qassert(private$.S, private$compartment_rule())
-      qassert(private$.E, private$compartment_rule(private$.numE))
-      qassert(private$.I, private$compartment_rule())
-      qassert(private$.R, private$compartment_rule())
-      qassert(private$.N, private$compartment_rule())
 
-      calcN <- private$.S + sum(private$.E) + private$.I + private$.R
+      if(private$.update_type=="stochastic"){
+        qassert(private$.Z, "X1")
+      }else if(private$.update_type=="deterministic"){
+        qassert(private$.Z, "N1")
+      }else{
+        stop("Internal logic error")
+      }
+      qassert(private$.Z, private$compartment_rule() |> str_replace(fixed("[0,)"), ""))
+      qassert(private$.S, private$compartment_rule())
+      qassert(private$.I, private$compartment_rule())
+      qassert(private$.D, private$compartment_rule())
+      qassert(private$.R, private$compartment_rule())
+      qassert(private$.V, private$compartment_rule())
+      qassert(private$.Pt, private$compartment_rule())
+      qassert(private$.Pf, private$compartment_rule())
+      qassert(private$.Pc, private$compartment_rule())
+      qassert(private$.N, private$compartment_rule())
+      qassert(private$.T, private$compartment_rule())
+
+      calcN <- private$.S + private$.I + private$.D + private$.R + private$.V
       if(private$.update_type=="stochastic"){
         stopifnot(calcN == private$.N)
       }else if(private$.update_type=="deterministic"){
+        #if(!isTRUE(all.equal(calcN, private$.N))) browser()
         stopifnot(isTRUE(all.equal(calcN, private$.N)))
       }else{
         stop("Internal logic error")
       }
-    },
 
-    get_transmission_rate = function(){
-      if(self$transmission_type=="frequency"){
-        trans_internal <- private$.beta * private$.I / private$.N
-      }else if(self$transmission_type=="density"){
-        trans_internal <- private$.beta * private$.I
+      calcT <- calcN + private$.Z + private$.Pt + private$.Pf + private$.Pc
+      if(private$.update_type=="stochastic"){
+        stopifnot(calcT == private$.T)
+      }else if(private$.update_type=="deterministic"){
+        stopifnot(isTRUE(all.equal(calcT, private$.T)))
       }else{
-        stop("Unrecognised transmission type: ", self$transmission_type)
+        stop("Internal logic error")
       }
-      trans_internal + self$trans_external
+
     },
 
     reset_N = function(){
-      private$.N <- private$.S + sum(private$.E) + private$.I + private$.R
+      private$.N <- private$.S + private$.I + private$.D + private$.R + private$.V
+      private$.T <- private$.N + private$.Z + private$.Pt + private$.Pf + private$.Pc
       ## Run the check_state method to ensure everything is OK:
       private$check_state()
     },
@@ -232,25 +302,18 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       private$.S <- value
       private$reset_N()
     },
-    #' @field E total number of exposed individuals - changing this value will cause the provided total to be distributed evenly (deterministic) or randomly (stochastic) between sub-compartments
-    E = function(value){
-      if(missing(value)) return(sum(private$.E))
-      qassert(value, private$compartment_rule())
-      ## For E we distribute input randomly/equally over sub-compartments:
-      if(private$.update_type=="stochastic"){
-        private$.E <- rmultinom(1, value, rep(1/private$.numE,private$.numE))[,1]
-      }else if(private$.update_type=="deterministic"){
-        private$.E <- rep(value/private$.numE, private$.numE)
-      }else{
-        stop("Internal logic error")
-      }
-      private$reset_N()
-    },
-    #' @field I number of infected animals
+    #' @field I total number of infected animals
     I = function(value){
-      if(missing(value)) return(private$.I)
+      if(missing(value)) return(sum(private$.I))
       qassert(value, private$compartment_rule())
       private$.I <- value
+      private$reset_N()
+    },
+    #' @field D number of diseased animals
+    D = function(value){
+      if(missing(value)) return(private$.D)
+      qassert(value, private$compartment_rule())
+      private$.D <- value
       private$reset_N()
     },
     #' @field R number of recovered animals
@@ -261,61 +324,86 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       private$reset_N()
     },
 
+    #' @field mortality_natural mortality rate from natural causes
+    mortality_natural = function(value){
+      if(missing(value)) return(private$.mortality_natural)
+      qassert(value, "N1[0,)")
+      private$.mortality_natural <- value
+    },
+    #' @field mortality_disease mortality rate from disease
+    mortality_disease = function(value){
+      if(missing(value)) return(private$.mortality_disease)
+      qassert(value, "N1[0,)")
+      private$.mortality_disease <- value
+    },
+    #' @field carrying_capacity number of animals supported by the population (can be Inf or NA)
+    carrying_capacity = function(value){
+      if(missing(value)) return(private$.carrying_capacity)
+      qassert(value, "n1(0,]")
+      private$.carrying_capacity <- value
+    },
+    #' @field birth_rate birth rate
+    birth_rate = function(value){
+      if(missing(value)) return(private$.birth_rate)
+      qassert(value, "N1[0,)")
+      private$.birth_rate <- value
+    },
+    #' @field relative_fecundity fecundity of diseased animals relative to other states (S/I/R/V)
+    relative_fecundity = function(value){
+      if(missing(value)) return(private$.relative_fecundity)
+      qassert(value, "N1[0,1]")
+      private$.relative_fecundity <- value
+    },
+
     #' @field beta the transmission rate parameter per unit time (must be positive)
     beta = function(value){
       if(missing(value)) return(private$.beta)
       assert_number(value, lower=0)
       private$.beta <- value
     },
-    #' @field omega the latent progression rate parameter per unit time (must be positive)
-    omega = function(value){
-      if(missing(value)) return(private$.omega)
+    #' @field omega the progression rate from I to D or S
+    sigma = function(value){
+      if(missing(value)) return(private$.sigma)
       assert_number(value, lower=0)
-      private$.omega <- value
+      private$.sigma <- value
     },
-    #' @field gamma the recovery rate parameter per unit time (must be positive)
-    gamma = function(value){
-      if(missing(value)) return(private$.gamma)
+    #' @field acute_recovery_prob the probability that a progression from I will go to S rather than D
+    acute_recovery_prob = function(value){
+      if(missing(value)) return(private$.acute_recovery_prob)
+      qassert(value, "N1[0,1]")
+      private$.acute_recovery_prob <- value
+    },
+    #' @field recovery the recovery rate parameter per unit time (must be positive)
+    recovery = function(value){
+      if(missing(value)) return(private$.recovery)
       assert_number(value, lower=0)
-      private$.gamma <- value
+      private$.recovery <- value
     },
-    #' @field delta the reversion rate parameter per unit time (must be positive)
-    delta = function(value){
-      if(missing(value)) return(private$.delta)
+    #' @field waning_natural the immune waning rate from R (following natural infection)
+    waning_natural = function(value){
+      if(missing(value)) return(private$.waning_natural)
       assert_number(value, lower=0)
-      private$.delta <- value
+      private$.waning_natural <- value
     },
-    #' @field vacc the vaccination rate parameter per unit time (must be positive)
-    vacc = function(value){
-      if(missing(value)) return(private$.vacc)
+    #' @field waning_vaccine the immune waning rate from V (following vaccination)
+    waning_vaccine = function(value){
+      if(missing(value)) return(private$.waning_vaccine)
       assert_number(value, lower=0)
-      private$.vacc <- value
+      private$.waning_vaccine <- value
     },
-    #' @field repl the replacement rate parameter per unit time (must be positive)
-    repl = function(value){
-      if(missing(value)) return(private$.repl)
-      assert_number(value, lower=0)
-      private$.repl <- value
-    },
-    #' @field cull the targeted culling rate parameter per unit time (must be positive)
-    cull = function(value){
-      if(missing(value)) return(private$.cull)
-      assert_number(value, lower=0)
-      private$.cull <- value
-    },
+
     #' @field time the current time point of the model (read-only)
     time = function(){
       private$.time
     },
-
-    #' @field N the total number of animals in the group (read-only)
+    #' @field N the total number of animals alive (read-only)
     N = function(){
       private$.N
     },
 
     #' @field state a data frame representing the current state of the model (read-only)
     state = function(){
-      tibble(Time = self$time, S = self$S, E = self$E, I = self$I, R = self$R)
+      tibble(Time = self$time, S = self$S, I = self$I, D = self$D, R = self$R, N = self$N)
     },
 
     #' @field trans_external the external transmission parameter
@@ -328,6 +416,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     #' @field transmission_type either frequency or density
     transmission_type = function(value){
       if(missing(value)) return(private$.transmission_type)
+      stopifnot(self$time == 0)
       private$.transmission_type <- match.arg(value,
         choices=c("frequency","density"))
     }
