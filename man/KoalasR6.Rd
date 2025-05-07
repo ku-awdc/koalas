@@ -9,13 +9,6 @@ or embedded in a between-group model.
 Note: D is not a real state (and can be negative), it is just used to ensure
 that the books are balanced including birth/death
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{omega}}{the progression rate from I to D or S}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
@@ -26,6 +19,14 @@ that the books are balanced including birth/death
 \item{\code{D}}{number of diseased animals}
 
 \item{\code{R}}{number of recovered animals}
+
+\item{\code{V}}{number of vaccinated animals}
+
+\item{\code{Pt}}{cumulative number of animals removed as true positives on active sampling}
+
+\item{\code{Pf}}{cumulative number of animals removed as false positives on active sampling}
+
+\item{\code{Pc}}{cumulative number of animals removed as true positives on passive sampling}
 
 \item{\code{mortality_natural}}{mortality rate from natural causes}
 
@@ -39,7 +40,7 @@ that the books are balanced including birth/death
 
 \item{\code{beta}}{the transmission rate parameter per unit time (must be positive)}
 
-\item{\code{omega}}{the progression rate from I to D or S}
+\item{\code{sigma}}{the progression rate from I to D or S}
 
 \item{\code{acute_recovery_prob}}{the probability that a progression from I will go to S rather than D}
 
@@ -67,6 +68,9 @@ that the books are balanced including birth/death
 \item \href{#method-KoalasR6-new}{\code{KoalasR6$new()}}
 \item \href{#method-KoalasR6-update}{\code{KoalasR6$update()}}
 \item \href{#method-KoalasR6-run}{\code{KoalasR6$run()}}
+\item \href{#method-KoalasR6-vaccinate}{\code{KoalasR6$vaccinate()}}
+\item \href{#method-KoalasR6-active_test}{\code{KoalasR6$active_test()}}
+\item \href{#method-KoalasR6-passive_test}{\code{KoalasR6$passive_test()}}
 \item \href{#method-KoalasR6-print}{\code{KoalasR6$print()}}
 \item \href{#method-KoalasR6-clone}{\code{KoalasR6$clone()}}
 }
@@ -131,11 +135,89 @@ Update the state of the group for several time points
 \item{\code{add_time}}{the additional time to add to the current time of the model}
 
 \item{\code{d_time}}{the desired time step (delta time)}
+
+\item{\code{thin}}{thinning parameter (currently ignored)}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 a data frame of the model state at each (new) time point
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasR6-vaccinate"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasR6-vaccinate}{}}}
+\subsection{Method \code{vaccinate()}}{
+Implement a (one-time) vaccination effort at the current time point
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$vaccinate(proportion, number, efficacy)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{proportion}}{the proportion of animals to vaccinate (ignored if number is supplied)}
+
+\item{\code{number}}{the (maximum) number of animals to vaccinate}
+
+\item{\code{efficacy}}{the efficacy of the vaccine i.e. probability of the animal moving to V (can be a vector with names S/I/D/R/V, otherwise the supplied number is re-used except for 0 is used for R)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the total number of animals vaccinated (including any R)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasR6-active_test"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasR6-active_test}{}}}
+\subsection{Method \code{active_test()}}{
+Implement a (one-time) active sampling/capture/testing of all animals
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$active_test(proportion, number, sensitivity, specificity)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{proportion}}{the proportion of animals to test and remove (ignored if number is supplied)}
+
+\item{\code{number}}{the (maximum) number of animals to test and remove}
+
+\item{\code{sensitivity}}{the sensitivity of the test}
+
+\item{\code{specificity}}{the specificity of the test}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a 2x2 matrix with number of Tp/Fn/Tn/Fp tests
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasR6-passive_test"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasR6-passive_test}{}}}
+\subsection{Method \code{passive_test()}}{
+Implement a (one-time) passive sampling/capture/testing of diseased animals
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$passive_test(proportion, number, sensitivity, specificity)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{proportion}}{the proportion of diseased animals to test and remove (ignored if number is supplied)}
+
+\item{\code{number}}{the (maximum) number of animals to test and remove}
+
+\item{\code{sensitivity}}{the sensitivity of the test}
+
+\item{\code{specificity}}{the specificity of the test}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a 2x2 matrix with number of Tp/Fn/Tn/Fp tests (although Tn and Fp are zero)
 }
 }
 \if{html}{\out{<hr>}}

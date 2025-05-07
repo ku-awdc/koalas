@@ -54,6 +54,7 @@ if(FALSE){
     model[[nn]] <- x[[nn]]
   }
   model$run(20, 0.01) |>
+    select(Time:R, N) |>
     pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
     bind_cols(x |> select(Scenario, Capacity))
 }
@@ -68,6 +69,7 @@ parameters |>
       model[[nn]] <- x[[nn]]
     }
     model$run(20, 0.01) |>
+      select(Time:R, N) |>
       pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
       bind_cols(x |> select(Scenario, Capacity))
   }, cl=6) |>

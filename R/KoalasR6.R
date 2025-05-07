@@ -155,6 +155,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     #' Update the state of the group for several time points
     #' @param add_time the additional time to add to the current time of the model
     #' @param d_time the desired time step (delta time)
+    #' @param thin thinning parameter (currently ignored)
     #' @return a data frame of the model state at each (new) time point
     run = function(add_time, d_time, thin=1){
       c(
@@ -164,6 +165,38 @@ KoalasR6 <- R6::R6Class("KoalasR6",
         })
       ) |>
         bind_rows()
+    },
+
+    #' @description
+    #' Implement a (one-time) vaccination effort at the current time point
+    #' @param proportion the proportion of animals to vaccinate (ignored if number is supplied)
+    #' @param number the (maximum) number of animals to vaccinate
+    #' @param efficacy the efficacy of the vaccine i.e. probability of the animal moving to V (can be a vector with names S/I/D/R/V, otherwise the supplied number is re-used except for 0 is used for R)
+    #' @return the total number of animals vaccinated (including any R)
+    vaccinate = function(proportion, number, efficacy){
+
+    },
+
+    #' @description
+    #' Implement a (one-time) active sampling/capture/testing of all animals
+    #' @param proportion the proportion of animals to test and remove (ignored if number is supplied)
+    #' @param number the (maximum) number of animals to test and remove
+    #' @param sensitivity the sensitivity of the test
+    #' @param specificity the specificity of the test
+    #' @return a 2x2 matrix with number of Tp/Fn/Tn/Fp tests
+    active_test = function(proportion, number, sensitivity, specificity){
+
+    },
+
+    #' @description
+    #' Implement a (one-time) passive sampling/capture/testing of diseased animals
+    #' @param proportion the proportion of diseased animals to test and remove (ignored if number is supplied)
+    #' @param number the (maximum) number of animals to test and remove
+    #' @param sensitivity the sensitivity of the test
+    #' @param specificity the specificity of the test
+    #' @return a 2x2 matrix with number of Tp/Fn/Tn/Fp tests (although Tn and Fp are zero)
+    passive_test = function(proportion, number, sensitivity, specificity){
+
     },
 
     #' @description
@@ -323,6 +356,14 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       private$.R <- value
       private$reset_N()
     },
+    #' @field V number of vaccinated animals
+    V = function() return(private$.V),
+    #' @field Pt cumulative number of animals removed as true positives on active sampling
+    Pt = function() return(private$.Pt),
+    #' @field Pf cumulative number of animals removed as false positives on active sampling
+    Pf = function() return(private$.Pf),
+    #' @field Pc cumulative number of animals removed as true positives on passive sampling
+    Pc = function() return(private$.Pc),
 
     #' @field mortality_natural mortality rate from natural causes
     mortality_natural = function(value){
@@ -361,7 +402,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       assert_number(value, lower=0)
       private$.beta <- value
     },
-    #' @field omega the progression rate from I to D or S
+    #' @field sigma the progression rate from I to D or S
     sigma = function(value){
       if(missing(value)) return(private$.sigma)
       assert_number(value, lower=0)
@@ -403,7 +444,8 @@ KoalasR6 <- R6::R6Class("KoalasR6",
 
     #' @field state a data frame representing the current state of the model (read-only)
     state = function(){
-      tibble(Time = self$time, S = self$S, I = self$I, D = self$D, R = self$R, N = self$N)
+      tibble(Time = self$time, S = self$S, I = self$I, D = self$D, R = self$R,
+             V = self$V, N = self$N, Pt = self$Pt, Pf = self$Pf, Pc = self$Pc)
     },
 
     #' @field trans_external the external transmission parameter
