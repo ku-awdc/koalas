@@ -98,3 +98,69 @@ res |>
   ylab("Number of koalas") + xlab("Time (years)")
 ggsave("notebooks/figS3.pdf", width=12, height=7)
 
+
+## Test vaccination
+model <- KoalasR6$new()
+parameters |>
+  filter(Scenario=="c", Capacity=="Unlimited") ->
+  x
+for(nn in names(x)){
+  if(nn %in% c("Scenario","Capacity")) next
+  model[[nn]] <- x[[nn]]
+}
+res <- list(model$run(5, 0.01))
+model$vaccinate(proportion = 0.5, efficacy=0.8)
+res <- c(res, list(model$run(5, 0.01)))
+model$vaccinate(proportion = 0.5, efficacy=0.8)
+res <- c(res, list(model$run(10, 0.01)))
+res |>
+  bind_rows() |>
+  select(Time:N) |>
+  pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
+  ggplot(aes(x=Time, y=Number, col=Compartment)) +
+  geom_line()
+
+
+## Test active testing
+model <- KoalasR6$new()
+parameters |>
+  filter(Scenario=="c", Capacity=="Unlimited") ->
+  x
+for(nn in names(x)){
+  if(nn %in% c("Scenario","Capacity")) next
+  model[[nn]] <- x[[nn]]
+}
+res <- list(model$run(5, 0.01))
+model$active_test(proportion = 0.5, sensitivity=0.8, specificity = 0.99)
+res <- c(res, list(model$run(5, 0.01)))
+model$active_test(proportion = 0.5, sensitivity=0.8, specificity = 0.99)
+res <- c(res, list(model$run(10, 0.01)))
+res |>
+  bind_rows() |>
+  select(Time:N) |>
+  pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
+  ggplot(aes(x=Time, y=Number, col=Compartment)) +
+  geom_line()
+
+
+## Test passive testing
+model <- KoalasR6$new()
+parameters |>
+  filter(Scenario=="c", Capacity=="Unlimited") ->
+  x
+for(nn in names(x)){
+  if(nn %in% c("Scenario","Capacity")) next
+  model[[nn]] <- x[[nn]]
+}
+res <- list(model$run(5, 0.01))
+model$passive_test(proportion = 0.5, sensitivity=0.8, specificity = 0.99, prevalence_other=0.01)
+res <- c(res, list(model$run(5, 0.01)))
+model$passive_test(proportion = 0.5, sensitivity=0.8, specificity = 0.99, prevalence_other=0.01)
+res <- c(res, list(model$run(10, 0.01)))
+res |>
+  bind_rows() |>
+  select(Time:N) |>
+  pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
+  ggplot(aes(x=Time, y=Number, col=Compartment)) +
+  geom_line()
+

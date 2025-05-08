@@ -22,11 +22,9 @@ that the books are balanced including birth/death
 
 \item{\code{V}}{number of vaccinated animals}
 
-\item{\code{Pt}}{cumulative number of animals removed as true positives on active sampling}
+\item{\code{Ctp}}{cumulative number of animals removed as true positives on active/passive sampling}
 
-\item{\code{Pf}}{cumulative number of animals removed as false positives on active sampling}
-
-\item{\code{Pc}}{cumulative number of animals removed as true positives on passive sampling}
+\item{\code{Cfp}}{cumulative number of animals removed as false positives on active/passive sampling}
 
 \item{\code{mortality_natural}}{mortality rate from natural causes}
 
@@ -150,22 +148,19 @@ a data frame of the model state at each (new) time point
 \subsection{Method \code{vaccinate()}}{
 Implement a (one-time) vaccination effort at the current time point
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$vaccinate(proportion, number, efficacy)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$vaccinate(number, proportion, efficacy)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{proportion}}{the proportion of animals to vaccinate (ignored if number is supplied)}
+\item{\code{number}}{the (maximum) number of animals to vaccinate (ignored if proportion is supplied)}
 
-\item{\code{number}}{the (maximum) number of animals to vaccinate}
+\item{\code{proportion}}{the proportion of animals to vaccinate}
 
-\item{\code{efficacy}}{the efficacy of the vaccine i.e. probability of the animal moving to V (can be a vector with names S/I/D/R/V, otherwise the supplied number is re-used except for 0 is used for R)}
+\item{\code{efficacy}}{the efficacy of the vaccine i.e. probability of the animal moving to V (from S, I or D - R and V do not move)}
 }
 \if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-the total number of animals vaccinated (including any R)
 }
 }
 \if{html}{\out{<hr>}}
@@ -174,24 +169,21 @@ the total number of animals vaccinated (including any R)
 \subsection{Method \code{active_test()}}{
 Implement a (one-time) active sampling/capture/testing of all animals
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$active_test(proportion, number, sensitivity, specificity)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$active_test(number, proportion, sensitivity, specificity)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{proportion}}{the proportion of animals to test and remove (ignored if number is supplied)}
+\item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
 
-\item{\code{number}}{the (maximum) number of animals to test and remove}
+\item{\code{proportion}}{the proportion of animals to test and remove}
 
 \item{\code{sensitivity}}{the sensitivity of the test}
 
 \item{\code{specificity}}{the specificity of the test}
 }
 \if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-a 2x2 matrix with number of Tp/Fn/Tn/Fp tests
 }
 }
 \if{html}{\out{<hr>}}
@@ -200,24 +192,29 @@ a 2x2 matrix with number of Tp/Fn/Tn/Fp tests
 \subsection{Method \code{passive_test()}}{
 Implement a (one-time) passive sampling/capture/testing of diseased animals
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$passive_test(proportion, number, sensitivity, specificity)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasR6$passive_test(
+  number,
+  proportion,
+  sensitivity,
+  specificity,
+  prevalence_other
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{proportion}}{the proportion of diseased animals to test and remove (ignored if number is supplied)}
+\item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
 
-\item{\code{number}}{the (maximum) number of animals to test and remove}
+\item{\code{proportion}}{the proportion of animals to test and remove}
 
 \item{\code{sensitivity}}{the sensitivity of the test}
 
 \item{\code{specificity}}{the specificity of the test}
+
+\item{\code{prevalence_other}}{the prevalence of other conditions that resemble clinical disease}
 }
 \if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-a 2x2 matrix with number of Tp/Fn/Tn/Fp tests (although Tn and Fp are zero)
 }
 }
 \if{html}{\out{<hr>}}

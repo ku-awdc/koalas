@@ -169,33 +169,120 @@ KoalasR6 <- R6::R6Class("KoalasR6",
 
     #' @description
     #' Implement a (one-time) vaccination effort at the current time point
-    #' @param proportion the proportion of animals to vaccinate (ignored if number is supplied)
-    #' @param number the (maximum) number of animals to vaccinate
-    #' @param efficacy the efficacy of the vaccine i.e. probability of the animal moving to V (can be a vector with names S/I/D/R/V, otherwise the supplied number is re-used except for 0 is used for R)
-    #' @return the total number of animals vaccinated (including any R)
-    vaccinate = function(proportion, number, efficacy){
+    #' @param number the (maximum) number of animals to vaccinate (ignored if proportion is supplied)
+    #' @param proportion the proportion of animals to vaccinate
+    #' @param efficacy the efficacy of the vaccine i.e. probability of the animal moving to V (from S, I or D - R and V do not move)
+    vaccinate = function(number, proportion, efficacy){
 
+      stopifnot(private$.update_type=="deterministic")
+      if(missing(proportion)){
+        qassert(number, "N1(0,]")
+        proportion <- number / private$.N
+        if(proportion>1){
+          warning("Requested more vaccinations than available animals")
+          proportion <- 1
+        }
+      }
+
+      qassert(proportion, "N1(0,1)")
+      qassert(efficacy, "N1(0,1)")
+
+      for(cc in c(".S",".I",".D")){
+        newv <- private[[cc]] * proportion * efficacy
+        private[[cc]] <- private[[cc]] - newv
+        private$.V <- private$.V + newv
+      }
+
+      private$check_state()
+
+      invisible(self)
     },
 
     #' @description
     #' Implement a (one-time) active sampling/capture/testing of all animals
-    #' @param proportion the proportion of animals to test and remove (ignored if number is supplied)
-    #' @param number the (maximum) number of animals to test and remove
+    #' @param number the (maximum) number of animals to test and remove (ignored if proportion is supplied)
+    #' @param proportion the proportion of animals to test and remove
     #' @param sensitivity the sensitivity of the test
     #' @param specificity the specificity of the test
-    #' @return a 2x2 matrix with number of Tp/Fn/Tn/Fp tests
-    active_test = function(proportion, number, sensitivity, specificity){
+    active_test = function(number, proportion, sensitivity, specificity){
 
+      stopifnot(private$.update_type=="deterministic")
+      if(missing(proportion)){
+        qassert(number, "N1(0,]")
+        proportion <- number / private$.N
+        if(proportion>1){
+          warning("Requested more vaccinations than available animals")
+          proportion <- 1
+        }
+      }
+
+      qassert(proportion, "N1(0,1)")
+      qassert(sensitivity, "N1(0,1)")
+      qassert(specificity, "N1(0,1)")
+
+      for(cc in c(".S",".V",".R")){
+        testpos <- private[[cc]] * proportion * (1-specificity)
+        private[[cc]] <- private[[cc]] - testpos
+        private$.N <- private$.N - testpos
+        private$.Cfp <- private$.Cfp + testpos
+      }
+      for(cc in c(".I",".D")){
+        testpos <- private[[cc]] * proportion * sensitivity
+        private[[cc]] <- private[[cc]] - testpos
+        private$.N <- private$.N - testpos
+        private$.Ctp <- private$.Ctp + testpos
+      }
+
+      private$check_state()
+
+      invisible(self)
     },
 
     #' @description
     #' Implement a (one-time) passive sampling/capture/testing of diseased animals
-    #' @param proportion the proportion of diseased animals to test and remove (ignored if number is supplied)
-    #' @param number the (maximum) number of animals to test and remove
+    #' @param number the (maximum) number of animals to test and remove (ignored if proportion is supplied)
+    #' @param proportion the proportion of animals to test and remove
     #' @param sensitivity the sensitivity of the test
     #' @param specificity the specificity of the test
-    #' @return a 2x2 matrix with number of Tp/Fn/Tn/Fp tests (although Tn and Fp are zero)
-    passive_test = function(proportion, number, sensitivity, specificity){
+    #' @param prevalence_other the prevalence of other conditions that resemble clinical disease
+    passive_test = function(number, proportion, sensitivity, specificity, prevalence_other){
+
+      stopifnot(private$.update_type=="deterministic")
+      if(missing(proportion)){
+        qassert(number, "N1(0,]")
+        proportion <- number / private$.N
+        if(proportion>1){
+          warning("Requested more vaccinations than available animals")
+          proportion <- 1
+        }
+      }
+
+      qassert(proportion, "N1(0,1)")
+      qassert(sensitivity, "N1(0,1)")
+      qassert(specificity, "N1(0,1)")
+      qassert(prevalence_other, "N1(0,1)")
+
+      for(cc in c(".S",".V",".R")){
+        testpos <- private[[cc]] * prevalence_other * proportion * (1-specificity)
+        private[[cc]] <- private[[cc]] - testpos
+        private$.N <- private$.N - testpos
+        private$.Cfp <- private$.Cfp + testpos
+      }
+      for(cc in c(".I")){
+        testpos <- private[[cc]] * prevalence_other * proportion * sensitivity
+        private[[cc]] <- private[[cc]] - testpos
+        private$.N <- private$.N - testpos
+        private$.Ctp <- private$.Ctp + testpos
+      }
+      for(cc in c(".D")){
+        testpos <- private[[cc]] * proportion * sensitivity
+        private[[cc]] <- private[[cc]] - testpos
+        private$.N <- private$.N - testpos
+        private$.Ctp <- private$.Ctp + testpos
+      }
+
+      private$check_state()
+      invisible(self)
 
     },
 
@@ -234,9 +321,8 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     .D = 0,
     .R = 0,
     .V = 0,
-    .Pt = 0,
-    .Pf = 0,
-    .Pc = 0,
+    .Ctp = 0,
+    .Cfp = 0,
     .N = 0,
     .T = 0,
 
@@ -277,9 +363,8 @@ KoalasR6 <- R6::R6Class("KoalasR6",
       qassert(private$.D, private$compartment_rule())
       qassert(private$.R, private$compartment_rule())
       qassert(private$.V, private$compartment_rule())
-      qassert(private$.Pt, private$compartment_rule())
-      qassert(private$.Pf, private$compartment_rule())
-      qassert(private$.Pc, private$compartment_rule())
+      qassert(private$.Ctp, private$compartment_rule())
+      qassert(private$.Cfp, private$compartment_rule())
       qassert(private$.N, private$compartment_rule())
       qassert(private$.T, private$compartment_rule())
 
@@ -293,7 +378,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
         stop("Internal logic error")
       }
 
-      calcT <- calcN + private$.Z + private$.Pt + private$.Pf + private$.Pc
+      calcT <- calcN + private$.Z + private$.Ctp + private$.Cfp
       if(private$.update_type=="stochastic"){
         stopifnot(calcT == private$.T)
       }else if(private$.update_type=="deterministic"){
@@ -306,7 +391,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
 
     reset_N = function(){
       private$.N <- private$.S + private$.I + private$.D + private$.R + private$.V
-      private$.T <- private$.N + private$.Z + private$.Pt + private$.Pf + private$.Pc
+      private$.T <- private$.N + private$.Z + private$.Ctp + private$.Cfp
       ## Run the check_state method to ensure everything is OK:
       private$check_state()
     },
@@ -358,12 +443,10 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     },
     #' @field V number of vaccinated animals
     V = function() return(private$.V),
-    #' @field Pt cumulative number of animals removed as true positives on active sampling
-    Pt = function() return(private$.Pt),
-    #' @field Pf cumulative number of animals removed as false positives on active sampling
-    Pf = function() return(private$.Pf),
-    #' @field Pc cumulative number of animals removed as true positives on passive sampling
-    Pc = function() return(private$.Pc),
+    #' @field Ctp cumulative number of animals removed as true positives on active/passive sampling
+    Ctp = function() return(private$.Ctp),
+    #' @field Cfp cumulative number of animals removed as false positives on active/passive sampling
+    Cfp = function() return(private$.Cfp),
 
     #' @field mortality_natural mortality rate from natural causes
     mortality_natural = function(value){
@@ -445,7 +528,7 @@ KoalasR6 <- R6::R6Class("KoalasR6",
     #' @field state a data frame representing the current state of the model (read-only)
     state = function(){
       tibble(Time = self$time, S = self$S, I = self$I, D = self$D, R = self$R,
-             V = self$V, N = self$N, Pt = self$Pt, Pf = self$Pf, Pc = self$Pc)
+             V = self$V, N = self$N, Ctp = self$Ctp, Cfp = self$Cfp)
     },
 
     #' @field trans_external the external transmission parameter
