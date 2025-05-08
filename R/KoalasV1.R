@@ -18,7 +18,7 @@ mlist <- IPDMR:::mlist
 #' @importFrom checkmate qassert assert_number
 #'
 #' @export
-KoalasR6 <- R6::R6Class("KoalasR6",
+KoalasV1 <- R6::R6Class("KoalasV1",
 
   public = mlist(
 

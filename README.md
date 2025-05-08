@@ -16,9 +16,9 @@ a disease model for Chlamydia in koalas
 
 - [] Are exponential waiting times reasonable for I and D?
 - [] Do we not need an E state?
-- [] Is it reasonable to vaccinate I/D animals?
-- [] Treatment from I/D reverts to susceptible, not R?
+- [] Vaccination from I/D reverts to susceptible - should this be reversion to I/D?
 - [] Which stable baseline parameter set(s) to use as a reference point?
 - [] For testing, do we assume that the koala remains in the population (and therefore infectious) while waiting for test results, and then removed after 48-72 hours?
 - [] Is it sufficient for vaccine efficacy to be combined with the vaccination rate (i.e. non-successful vaccines simply have no effect?) or do we need to separate efficacy against being infected and efficacy against shedding?
 - [] Is it sufficient to assume a single well-mixed group?
+- [] Future work:  ABM

@@ -48,7 +48,7 @@ if(FALSE){
   parameters |>
     filter(Scenario=="a", Capacity=="Limited") ->
     x
-  model <- KoalasR6$new()
+  model <- KoalasV1$new()
   for(nn in names(x)){
     if(nn %in% c("Scenario","Capacity")) next
     model[[nn]] <- x[[nn]]
@@ -63,7 +63,7 @@ parameters |>
   rowwise() |>
   group_split() |>
   pblapply(\(x){
-    model <- KoalasR6$new()
+    model <- KoalasV1$new()
     for(nn in names(x)){
       if(nn %in% c("Scenario","Capacity")) next
       model[[nn]] <- x[[nn]]
@@ -100,7 +100,7 @@ ggsave("notebooks/figS3.pdf", width=12, height=7)
 
 
 ## Test vaccination
-model <- KoalasR6$new()
+model <- KoalasV1$new()
 parameters |>
   filter(Scenario=="c", Capacity=="Unlimited") ->
   x
@@ -122,7 +122,7 @@ res |>
 
 
 ## Test active testing
-model <- KoalasR6$new()
+model <- KoalasV1$new()
 parameters |>
   filter(Scenario=="c", Capacity=="Unlimited") ->
   x
@@ -144,7 +144,7 @@ res |>
 
 
 ## Test passive testing
-model <- KoalasR6$new()
+model <- KoalasV1$new()
 parameters |>
   filter(Scenario=="c", Capacity=="Unlimited") ->
   x
