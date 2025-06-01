@@ -19,6 +19,9 @@
 #' @references
 #' Some article that you might want users to look at
 #'
+#' @importFrom Rcpp loadModule
+#' @useDynLib koalas, .registration = TRUE
+#' 
 #' @keywords internal
 "_PACKAGE"
 

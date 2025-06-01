@@ -1,7 +1,7 @@
 Package: koalas
 Title: A Disease Model for Chlamydia in Koalas
-Version: 0.1.1-1
-Date: 2025-05-08
+Version: 0.2.1-1
+Date: 2025-05-30
 Description: What the package does (one paragraph).
 Authors@R:
   c(
@@ -13,12 +13,15 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends:
   R (>= 4.1.0)
+LinkingTo:
+  Rcpp
 Imports:
   rlang,
   dplyr,
   tibble,
   IPDMR,
   checkmate,
+  Rcpp,
   R6
 Suggests: 
   neatpkg,
@@ -26,6 +29,8 @@ Suggests:
   rmarkdown,
   spelling,
   testthat (>= 3.0.0)
+NeedsCompilation:  yes
+SystemRequirements: C++20
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Language: en-GB
