@@ -26,6 +26,11 @@ private:
   Compartment<CTS, s_ncomps, 2> m_Nf;
   Compartment<CTS, s_ncomps, 1> m_Rf;
   
+  double m_dead = 0.0;
+  
+  int m_year = 0;
+  int m_day = 0;
+  double m_time = 0.0;
   
   double m_vs_rate = 0.0;       // #1
   double m_ni_rate = 0.0;       // #2
@@ -43,31 +48,89 @@ private:
   
   KoalaGroup() = delete;
   
-  [[nodiscard]] auto to_duration(double const rate) const noexcept(!CTS.debug) -> double
+  [[nodiscard]] auto to_duration(double const rate) const noexcept(!CTS.debug) 
+    -> double
   {
-    double const duration = 365.0 / rate;
+    double const duration = 1.0 / (rate * 365.0);
     return duration;
   }
 
-  [[nodiscard]] auto to_rate(double const duration) const noexcept(!CTS.debug) -> double
+  [[nodiscard]] auto to_rate(double const duration) const noexcept(!CTS.debug) 
+    -> double
   {
-    double const rate = 365.0 / duration;
+    double const rate = 1.0 / (duration * 365.0);
     return rate;    
+  }
+  
+  auto update_death(double const d_time) noexcept(!CTS.debug)
+    -> void
+  {
+    double die = 1.0 - std::exp(-m_mort_nat*d_time);
+    m_dead += m_S.take_out(die);
+    m_dead += m_V.take_out(die);
+    m_dead += m_I.take_out(die);
+    m_dead += m_N.take_out(die);
+    m_dead += m_R.take_out(die);
+    // m_dead += m_Af.take_out(die);
+    m_dead += m_Cf.take_out(die);
+    m_dead += m_Sf.take_out(die);
+    m_dead += m_Vf.take_out(die);
+    m_dead += m_If.take_out(die);
+    m_dead += m_Nf.take_out(die);
+    m_dead += m_Rf.take_out(die);
+    
+    double diedis = 1.0 - std::exp(-m_mort_dis*d_time);
+    m_dead += m_Af.take_out(diedis);    
+  }
+
+  auto update_birth(double const d_time) noexcept(!CTS.debug)
+    -> void
+  {
+    // private$.birth_rate * (private$.N + ((private$.relative_fecundity-1.0) * private$.D))
+    // leave_Z <- zrt*d_time
+    
+  }
+
+  auto update_disease(double const d_time) noexcept(!CTS.debug)
+    -> void
+  {
+    
+  }
+  
+  auto update_passive() noexcept(!CTS.debug)
+    -> void
+  {
+    
   }
   
 
 public:
   KoalaGroup(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
   {
-    set_pars_natural(parameters);    
+    set_pars_natural(parameters);
+    m_S.set_sum(299.0);
+    m_I.set_sum(1.0);
   }
   
-  auto set_pars_natural(Rcpp::NumericVector const parameters) noexcept(!CTS.debug) -> void
+  auto set_pars_natural(Rcpp::NumericVector const parameters) noexcept(!CTS.debug) 
+    -> void
   {
-        
+    m_vs_rate = to_rate(parameters["vacc_immune_duration"]);     // #1
+    m_ni_rate = to_rate(parameters["vacc_redshed_duration"]);    // #2
+    m_rs_rate = to_rate(parameters["natural_immune_duration"]);  // #3
+    m_beta = parameters["beta"];                                 // #4
+    m_ia_rate = to_rate(parameters["subcinical_duration"]);      // #5
+    m_screc_prop = parameters["subclinical_recover_proportion"]; // #6
+    m_disrec_prop = parameters["diseased_recover_proportion"];   // #7
+    m_birthrate = parameters["birthrate"];                       // #8
+    m_ac_rate = to_rate(parameters["acute_duration"]);           // #9
+    m_mort_nat = to_rate(parameters["lifespan_natural"]);        // #10
+    m_mort_dis = to_rate(parameters["lifespan_diseased"]);       // #11
+    m_rel_fecundity = parameters["relative_fecundity"];          // #12
   }
   
-  [[nodiscard]] auto get_pars_natural() const noexcept(!CTS.debug) -> Rcpp::NumericVector
+  [[nodiscard]] auto get_pars_natural() const noexcept(!CTS.debug) 
+    -> Rcpp::NumericVector
   {
     using namespace Rcpp;    
     NumericVector pars = NumericVector::create(
@@ -88,10 +151,63 @@ public:
     return pars; 
   }
   
-  [[nodiscard]] auto get_sum() const noexcept(!CTS.debug) -> double
+  auto update(int const days, double const d_time) noexcept(!CTS.debug) 
+    -> void
   {
-    double const rv = 2.0;
+    int newdays = 0;
+    while (newdays < days)
+    {
+      update_death(d_time);
+      update_birth(d_time);
+      update_disease(d_time);
+
+      m_time += d_time;
+      if(m_time >= 1.0)
+      {
+        update_passive();
+        
+        m_time = 0.0;
+        m_day++;
+        newdays++;
+        if(m_day >= 366)
+        {
+          m_day = 1;
+          m_year++;
+        }
+      }
+      Rcpp::checkUserInterrupt();
+    };
+    
+  }
+  
+  [[nodiscard]] auto get_state() const noexcept(!CTS.debug) 
+    -> Rcpp::DataFrame
+  {
+    using namespace Rcpp;
+    DataFrame rv = DataFrame::create(
+      _["Year"] = m_year,
+      _["Day"] = m_day,    
+      _["S"] = m_S.get_sum(),
+      _["V"] = m_V.get_sum(),
+      _["I"] = m_I.get_sum(),
+      _["N"] = m_N.get_sum(),
+      _["R"] = m_R.get_sum(),
+      _["Af"] = m_Af.get_sum(),
+      _["Cf"] = m_Cf.get_sum(),
+      _["Sf"] = m_Sf.get_sum(),
+      _["Vf"] = m_Vf.get_sum(),
+      _["If"] = m_If.get_sum(),
+      _["Nf"] = m_Nf.get_sum(),
+      _["Rf"] = m_Rf.get_sum(),
+      _["Z"] = m_dead
+    );
     return rv;
+  }
+
+  auto set_state(Rcpp::DataFrame const state) noexcept(!CTS.debug) 
+    -> void
+  {
+    // TODO
   }
   
 };

@@ -25,8 +25,11 @@ RCPP_MODULE(koalas){
   class_<KoalaGroupD3>("KoalaGroupD3")
     .factory(invalidate_default_constructor)
     .constructor<NumericVector const>("Constructor with parameter vector")
+      
+    .method("update", &KoalaGroupD3::update, "Update method")    
 
-    .property("parameters", &KoalaGroupD3::get_pars_natural, &KoalaGroupD3::set_pars_natural, "Get and set parameters N")
+    .property("state", &KoalaGroupD3::get_state, &KoalaGroupD3::set_state, "Get and set state")
+    .property("pars_natural", &KoalaGroupD3::get_pars_natural, &KoalaGroupD3::set_pars_natural, "Get and set parameters for natural processes")
   ;
 
 }

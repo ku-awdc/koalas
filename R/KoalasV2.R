@@ -40,10 +40,14 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(num_A, "X1(0,)")
 
       if(all(c(num_V,num_I,num_N,num_R,num_A)==1L)){
+        private$.alpha <- 1L
+        parameters <- private$check_pars_natural(private$default_pars_natural())
         # private$.obj <- new(KoalaGroupD1, 42.0)
         stop()
       }else if(all(c(num_V,num_I,num_N,num_R,num_A)==3L)){
-        private$.obj <- new(KoalaGroupD3, 42.0)
+        private$.alpha <- 3L
+        parameters <- private$check_pars_natural(private$default_pars_natural())
+        private$.obj <- new(KoalaGroupD3, parameters)
       }else{
         ## Temporary:
         stop("Unsupported num combination")
@@ -327,6 +331,53 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     ## Private fields:
     .obj = NULL,
+    .alpha = NA_integer_,
+
+    default_pars_natural = function(){
+      list(
+        vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
+        vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
+        natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
+        beta = rep(0.1,3), #4
+        subcinical_duration = c(0.5, 0.1, 1.0), #5
+        subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
+        diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
+        birthrate = rep(1.0,3), #8
+        acute_duration = c(0.4, NA_real_, NA_real_), #9
+        lifespan_natural = c(5.0, 3.0, 12.0), #10
+        lifespan_diseased = rep(0.25,3), #11 - 25% die before they reach C - i.e. relative to #9
+        relative_fecundity = c(0.0, 0.0, 0.1) #12 - ignoring males
+      ) |>
+        lapply(\(x) x[1L]) ->
+        pars
+
+      ## Relative to #1:
+      pars[["vacc_redshed_duration"]] <- pars[["vacc_immune_duration"]] * pars[["vacc_redshed_duration"]]
+      pars[["natural_immune_duration"]] <- pars[["vacc_immune_duration"]] * pars[["natural_immune_duration"]]
+
+      ## lifespan_diseased is calibrated so that a certain % die before moving on, so is relative to acute duration:
+      qassert(private$.alpha, "X1(0,)")
+      deadline <- qgamma(0.99, private$.alpha, rate=private$.alpha/pars[["acute_duration"]])
+      duration <- optimise(\(x){
+        abs(pars[["lifespan_diseased"]] - pgamma(deadline, private$.alpha, rate=private$.alpha/x))
+      }, c(0, 100))$minimum
+      # curve(pgamma(x, 3, rate=3/duration), from=0, to=5); abline(v=deadline); abline(h=pars[["lifespan_diseased"]])
+      pars[["lifespan_diseased"]] <- duration
+
+      unlist(pars)
+    },
+
+    check_pars_natural = function(pars){
+
+      ## TODO
+
+      pars
+
+    },
+
+
+
+    ## TO REMOVE
 
     .Z = 0,
     .S = 0,
