@@ -21,7 +21,17 @@ ff <- function(pars=c(3.0, 0.38)){
 
 #optim(c(3.0, 0.38), ff, control=list(trace=10))
 
-pars <- c(3.0, 0.345)
+pars <- c(3.0, 0.38)
+
+#set_pars_natural(parameters);
+#double const prev = 0.0205;
+#double const N = 257.5;
+#m_S.set_sum(N * (1.0-prev));
+#m_I.set_sum(N * prev * 0.6);
+#m_Af.set_sum(N * prev * 0.3);
+#m_Cf.set_sum(N * prev * 0.1);
+#m_Z = -N;
+
 
 mm <- KoalasV2$new()
 pp <- mm$.__enclos_env__$private$.obj$pars_natural
@@ -29,22 +39,30 @@ pp["beta"] <- pars[1]
 pp["birthrate"] <- pars[2]
 mm$.__enclos_env__$private$.obj$pars_natural <- pp
 
-lapply(seq_len(52*20), \(x){
-  mm$.__enclos_env__$private$.obj$update(7, 1/24)
+lapply(seq_len(365*5), \(x){
+  mm$.__enclos_env__$private$.obj$update(1, 1/24)
   mm$.__enclos_env__$private$.obj$state
 }) |>
   bind_rows() ->
   output
 
+output |>
+  select(Year,Day,S,I,R,Af,Cf) |>
+  mutate(Total = S+I+R+Af+Cf, Prev = 1-(S/Total)) |>
+  filter(Year==1 | Prev>=0.15) |>
+  head()
+
 theme_set(theme_light())
-pdf("outputs.pdf", width=14)
+pdf("outputs_5y.pdf", width=14)
 output |>
   select(Year,Day,S,I,R,Af,Cf) |>
   mutate(Total = S+I+R+Af+Cf) |>
   pivot_longer(S:Total) |>
   ggplot(aes(x=Year + Day/365, y=value, col=name)) +
   geom_line() +
-  labs(caption=str_c("beta: ", pars[1], ",  birthrate: ", pars[2]), x="Time (years)", y="Number")
+  labs(caption=str_c("beta: ", pars[1], ",  birthrate: ", pars[2]), x="Time (years)", y="Number") +
+  scale_x_continuous(breaks=0:10) +
+  geom_vline(xintercept=1, lty="dashed")
 
 output |>
   mutate(Total = S+I+R+Af+Cf, All = (I+Af+Cf)/Total*100, I = I/Total*100, Af = Af/Total*100, Cf = Cf/Total*100) |>
@@ -53,12 +71,20 @@ output |>
   ggplot(aes(x=Year + Day/365, y=value, col=name)) +
   geom_line() +
   labs(caption=str_c("beta: ", pars[1], ",  birthrate: ", pars[2]), x="Time (years)", y="Prevalence") +
-  ylim(0,100)
+  scale_y_continuous(breaks=seq(0,100,by=10), limits = c(0,100)) +
+  scale_x_continuous(breaks=0:10) +
+  geom_vline(xintercept=1, lty="dashed")
 dev.off()
 
 output |>
   select(Year,Day,S,I,R,Af,Cf) |>
   mutate(Total = S+I+R+Af+Cf) |>
+  tail()
+
+output |>
+  select(Year,Day,S,I,R,Af,Cf) |>
+  mutate(Total = S+I+R+Af+Cf) |>
+  mutate(across(c(I,R,Af,Cf), \(x) x/(Total-S))) |>
   tail()
 
 output |>

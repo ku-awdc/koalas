@@ -198,9 +198,13 @@ public:
   KoalaGroup(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
   {
     set_pars_natural(parameters);
-    m_S.set_sum(255.0);
-    m_Cf.set_sum(45.0);
-    m_Z = -300.0;
+    double const prev = 0.0205;
+    double const N = 257.5;
+    m_S.set_sum(N * (1.0-prev));
+    m_I.set_sum(N * prev * 0.6);
+    m_Af.set_sum(N * prev * 0.3);
+    m_Cf.set_sum(N * prev * 0.1);
+    m_Z = -N;
   }
 
   auto set_pars_natural(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
