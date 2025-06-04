@@ -338,11 +338,11 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(0.1,3), #4
+        beta = rep(3.0,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
-        birthrate = rep(1.0,3), #8
+        birthrate = rep(0.38,3), #8
         acute_duration = c(0.4, NA_real_, NA_real_), #9
         lifespan_natural = c(5.0, 3.0, 12.0), #10
         lifespan_diseased = rep(0.25,3), #11 - 25% die before they reach C - i.e. relative to #9
