@@ -27,6 +27,9 @@ private:
   Compartment<CTS, s_ncomps, 1> m_Rf;
 
   double m_Z = 0.0;
+  double m_sumTx = 0.0;
+  double m_sumVx = 0.0;
+  double m_sumMx = 0.0;
 
   int m_year = 0;
   int m_day = 0;
@@ -44,6 +47,17 @@ private:
   double m_mort_nat = 0.0;      // #10
   double m_mort_dis = 0.0;      // #11
   double m_rel_fecundity = 0.0; // #12
+
+  double m_se = 1.0;
+  double m_sp = 1.0;
+  // Destinations: (1) R, (2) N, (3) A/C/I, (4) Z
+  double m_tx_dest1 = 0.33;
+  double m_tx_dest2 = 0.33;
+  double m_tx_dest3 = 0.01;
+  double m_tx_dest4 = 0.33;
+  double m_vx_eff = 1.0;
+  double m_vx_bst = 1.0;
+  double m_passive_rate = 0.0;
 
 
   KoalaGroup() = delete;
@@ -78,7 +92,9 @@ private:
     m_Z += m_Rf.take_rate(m_mort_nat, d_time);
 
     // Mortality for Af is different:
-    m_Z += m_Af.take_rate(m_mort_dis, d_time);
+    double const dmort = m_Af.take_rate(m_mort_dis, d_time);
+    m_sumMx += dmort;
+    m_Z += dmort;
 
     update_apply();
   }
@@ -146,6 +162,7 @@ private:
   auto update_passive() noexcept(!CTS.debug)
     -> void
   {
+    
 
     update_apply();
   }
@@ -195,19 +212,13 @@ private:
 
 
 public:
-  KoalaGroup(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
+  KoalaGroup(Rcpp::NumericVector const parameters, Rcpp::NumericVector const state) noexcept(!CTS.debug)
   {
-    set_pars_natural(parameters);
-    double const prev = 0.0205;
-    double const N = 257.5;
-    m_S.set_sum(N * (1.0-prev));
-    m_I.set_sum(N * prev * 0.6);
-    m_Af.set_sum(N * prev * 0.3);
-    m_Cf.set_sum(N * prev * 0.1);
-    m_Z = -N;
+    set_pars(parameters);
+    set_state(state);
   }
 
-  auto set_pars_natural(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
+  auto set_pars(Rcpp::NumericVector const parameters) noexcept(!CTS.debug)
     -> void
   {
     m_vs_rate = to_rate(parameters["vacc_immune_duration"]);     // #1
@@ -222,9 +233,20 @@ public:
     m_mort_nat = to_rate(parameters["lifespan_natural"]);        // #10
     m_mort_dis = to_rate(parameters["lifespan_diseased"]);       // #11
     m_rel_fecundity = parameters["relative_fecundity"];          // #12
+
+    m_se = parameters["sensitivity"];
+    m_sp = parameters["specificity"];
+    m_tx_dest1 = parameters["treatment_dest_R"];
+    m_tx_dest2 = parameters["treatment_dest_N"];
+    m_tx_dest3 = parameters["treatment_dest_IAC"];
+    m_tx_dest4 = parameters["treatment_dest_remove"];
+    m_vx_eff = parameters["vaccine_efficacy"];
+    m_vx_bst = parameters["vaccine_booster"];
+    m_passive_rate = std::log(1.0 - parameters["passive_proportion"]) / 365.0;
+
   }
 
-  [[nodiscard]] auto get_pars_natural() const noexcept(!CTS.debug)
+  [[nodiscard]] auto get_pars() const noexcept(!CTS.debug)
     -> Rcpp::NumericVector
   {
     using namespace Rcpp;
@@ -240,10 +262,74 @@ public:
       _["acute_duration"] = to_duration(m_ac_rate),           // #9
       _["lifespan_natural"] = to_duration(m_mort_nat),        // #10
       _["lifespan_diseased"] = to_duration(m_mort_dis),       // #11
-      _["relative_fecundity"] = m_rel_fecundity               // #12
+      _["relative_fecundity"] = m_rel_fecundity,              // #12
+
+      _["sensitivity"] = m_se,
+      _["specificity"] = m_sp,
+      _["treatment_dest_R"] = m_tx_dest1,
+      _["treatment_dest_N"] = m_tx_dest2,
+      _["treatment_dest_IAC"] = m_tx_dest3,
+      _["treatment_dest_remove"] = m_tx_dest4,
+      _["vaccine_efficacy"] = m_vx_eff,
+      _["vaccine_booster"] = m_vx_bst
+    ); // Max number of elements is 20
+
+    pars.push_back(
+      1.0 - std::exp(m_passive_rate * 365.0),
+      "passive_proportion"
     );
 
     return pars;
+  }
+
+  auto set_state(Rcpp::NumericVector const state) noexcept(!CTS.debug)
+    -> void
+  {
+    m_year = static_cast<int>(state["Year"]);
+    m_day = static_cast<int>(state["Day"]);
+    m_S.set_sum(state["S"]);
+    m_V.set_sum(state["V"]);
+    m_I.set_sum(state["I"]);
+    m_N.set_sum(state["N"]);
+    m_R.set_sum(state["R"]);
+    m_Af.set_sum(state["Af"]);
+    m_Cf.set_sum(state["Cf"]);
+    m_Sf.set_sum(state["Sf"]);
+    m_Vf.set_sum(state["Vf"]);
+    m_If.set_sum(state["If"]);
+    m_Nf.set_sum(state["Nf"]);
+    m_Rf.set_sum(state["Rf"]);
+    m_Z = state["Z"];
+    m_sumTx = state["SumTx"];
+    m_sumVx = state["SumVx"];
+    m_sumMx = state["SumMx"];
+  }
+
+  [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
+    -> Rcpp::NumericVector
+  {
+    using namespace Rcpp;
+    NumericVector rv = NumericVector::create(
+      _["Year"] = static_cast<double>(m_year),
+      _["Day"] = static_cast<double>(m_day),
+      _["S"] = m_S.get_sum(),
+      _["V"] = m_V.get_sum(),
+      _["I"] = m_I.get_sum(),
+      _["N"] = m_N.get_sum(),
+      _["R"] = m_R.get_sum(),
+      _["Af"] = m_Af.get_sum(),
+      _["Cf"] = m_Cf.get_sum(),
+      _["Sf"] = m_Sf.get_sum(),
+      _["Vf"] = m_Vf.get_sum(),
+      _["If"] = m_If.get_sum(),
+      _["Nf"] = m_Nf.get_sum(),
+      _["Rf"] = m_Rf.get_sum(),
+      _["Z"] = m_Z,
+      _["SumTx"] = m_sumTx,
+      _["SumVx"] = m_sumVx,
+      _["SumMx"] = m_sumMx
+    );
+    return rv;
   }
 
   auto update(int const days, double const d_time) noexcept(!CTS.debug)
@@ -274,36 +360,6 @@ public:
       Rcpp::checkUserInterrupt();
     };
 
-  }
-
-  [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
-    -> Rcpp::DataFrame
-  {
-    using namespace Rcpp;
-    DataFrame rv = DataFrame::create(
-      _["Year"] = m_year,
-      _["Day"] = m_day,
-      _["S"] = m_S.get_sum(),
-      _["V"] = m_V.get_sum(),
-      _["I"] = m_I.get_sum(),
-      _["N"] = m_N.get_sum(),
-      _["R"] = m_R.get_sum(),
-      _["Af"] = m_Af.get_sum(),
-      _["Cf"] = m_Cf.get_sum(),
-      _["Sf"] = m_Sf.get_sum(),
-      _["Vf"] = m_Vf.get_sum(),
-      _["If"] = m_If.get_sum(),
-      _["Nf"] = m_Nf.get_sum(),
-      _["Rf"] = m_Rf.get_sum(),
-      _["Z"] = m_Z
-    );
-    return rv;
-  }
-
-  auto set_state(Rcpp::DataFrame const state) noexcept(!CTS.debug)
-    -> void
-  {
-    // TODO
   }
 
 };

@@ -34,10 +34,10 @@ pars <- c(3.0, 0.38)
 
 
 mm <- KoalasV2$new()
-pp <- mm$.__enclos_env__$private$.obj$pars_natural
+pp <- mm$.__enclos_env__$private$.obj$parameters
 pp["beta"] <- pars[1]
 pp["birthrate"] <- pars[2]
-mm$.__enclos_env__$private$.obj$pars_natural <- pp
+mm$.__enclos_env__$private$.obj$parameters <- pp
 
 lapply(seq_len(365*5), \(x){
   mm$.__enclos_env__$private$.obj$update(1, 1/24)

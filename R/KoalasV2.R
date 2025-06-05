@@ -23,15 +23,16 @@ KoalasV2 <- R6::R6Class("KoalasV2",
   public = mlist(
 
     #' @description
-    #' Create a new within-group model
+    #' Create a new single-group koala model
+    #' @param num number of sub-components for all states (unless overridden)
     #' @param num_V number of sub-components for V (and Vf)
     #' @param num_I number of sub-components for I (and If)
     #' @param num_N number of sub-components for N (and Nf)
     #' @param num_R number of sub-components for R (and Rf)
     #' @param num_A number of sub-components for A (and If)
-    #' @param group_name an optional name for the group (will be included in the output state, if provided)
+    #'
     #' @return A new within-group model object
-    initialize = function(num_V = 3L, num_I = 3L, num_N = 3L, num_R = 3L, num_A = 3L){
+    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num){
 
       qassert(num_V, "X1(0,)")
       qassert(num_I, "X1(0,)")
@@ -41,16 +42,17 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
       if(all(c(num_V,num_I,num_N,num_R,num_A)==1L)){
         private$.alpha <- 1L
-        parameters <- private$check_pars_natural(private$default_pars_natural())
-        # private$.obj <- new(KoalaGroupD1, 42.0)
-        stop()
+        parameters <- private$check_pars(private$default_pars())
+        state <- private$check_state(private$default_state())
+        private$.obj <- new(KoalaGroupD1, parameters, state)
       }else if(all(c(num_V,num_I,num_N,num_R,num_A)==3L)){
         private$.alpha <- 3L
-        parameters <- private$check_pars_natural(private$default_pars_natural())
-        private$.obj <- new(KoalaGroupD3, parameters)
+        parameters <- private$check_pars(private$default_pars())
+        state <- private$check_state(private$default_state())
+        private$.obj <- new(KoalaGroupD3, parameters, state)
       }else{
         ## Temporary:
-        stop("Unsupported num combination")
+        stop("Unsupported num_* combination")
       }
 
       return(self)
@@ -333,7 +335,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     .obj = NULL,
     .alpha = NA_integer_,
 
-    default_pars_natural = function(){
+    default_pars = function(){
       list(
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
@@ -346,7 +348,17 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         acute_duration = c(0.4, NA_real_, NA_real_), #9
         lifespan_natural = c(5.0, 3.0, 12.0), #10
         lifespan_diseased = rep(0.25,3), #11 - 25% die before they reach C - i.e. relative to #9
-        relative_fecundity = c(0.0, 0.0, 0.1) #12 - ignoring males
+        relative_fecundity = c(0.0, 0.0, 0.1), #12 - ignoring males
+
+        sensitivity = c(0.95, 0.90, 1.0),
+        specificity = c(0.999, 0.99, 1.0),
+        treatment_dest_R = rep(0.6, 3),
+        treatment_dest_N = rep(0.2, 3),
+        treatment_dest_IAC = rep(0, 3),
+        treatment_dest_remove = rep(0.2, 3),
+        vaccine_efficacy = c(0.5, NA_real_, NA_real_),
+        vaccine_booster = c(1, 1, 1), # relative to vaccine efficacy
+        passive_proportion = c(0.02, 0.01, 0.04)
       ) |>
         lapply(\(x) x[1L]) ->
         pars
@@ -364,15 +376,58 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       # curve(pgamma(x, 3, rate=3/duration), from=0, to=5); abline(v=deadline); abline(h=pars[["lifespan_diseased"]])
       pars[["lifespan_diseased"]] <- duration
 
+      ## Normalise treatment dest against sensitivity
+      pars[["treatment_dest_IAC"]] <- 1 - pars[["sensitivity"]]
+      for(nn in c("treatment_dest_R","treatment_dest_N","treatment_dest_remove")) pars[[nn]] <- pars[[nn]] - (1 - pars[["sensitivity"]])/3
+      stopifnot(
+        pars[c("treatment_dest_R","treatment_dest_N","treatment_dest_remove","treatment_dest_IAC")] |> unlist() |> sum() |> all.equal(1)
+      )
+
+      ## Relative to vaccine efficacy:
+      pars[["vaccine_booster"]] <- pars[["vaccine_booster"]] * pars[["vaccine_efficacy"]]
+      stopifnot(pars[["vaccine_booster"]] <= 1)
+
       unlist(pars)
     },
 
-    check_pars_natural = function(pars){
+    check_pars = function(pars){
 
       ## TODO
 
       pars
 
+    },
+
+    default_state = function(){
+
+      prev <- 0.0205
+      N <- 257.5
+
+      c(
+        Year = 0.0,
+        Day = 0.0,
+        S = N * (1.0-prev),
+        V = 0.0,
+        I = N * prev * 0.6,
+        N = 0.0,
+        R = 0.0,
+        Af = N * prev * 0.3,
+        Cf = N * prev * 0.1,
+        Sf = 0.0,
+        Vf = 0.0,
+        If = 0.0,
+        Nf = 0.0,
+        Rf = 0.0,
+        Z = -N,
+        SumTx = 0.0,
+        SumVx = 0.0,
+        SumMx = 0.0
+      )
+    },
+
+    check_state = function(state){
+      ## TODO
+      state
     },
 
 
@@ -412,7 +467,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     .trans_external = 0,
 
     ## Private methods:
-    check_state = function(){
+    check_state_old = function(){
 
       if(private$.update_type=="stochastic"){
         qassert(private$.Z, "X1")
