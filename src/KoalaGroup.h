@@ -327,7 +327,8 @@ public:
     m_tx_dest4 = parameters["treatment_dest_remove"];
     m_vx_eff = parameters["vaccine_efficacy"];
     m_vx_bst = parameters["vaccine_booster"];
-    m_passive_rate = -std::log(1.0 - parameters["passive_proportion"]) / 365.0;
+    m_passive_rate = parameters["passive_intervention_rate"] / 365.0;
+        // -std::log(1.0 - parameters["passive_proportion"]) / 365.0
 
   }
 
@@ -360,8 +361,8 @@ public:
     ); // Max number of elements is 20
 
     pars.push_back(
-      1.0 - std::exp(-m_passive_rate * 365.0),
-      "passive_proportion"
+      m_passive_rate*365.0,  // 1.0 - std::exp(-m_passive_rate * 365.0),
+      "passive_intervention_rate"
     );
 
     return pars;

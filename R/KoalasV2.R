@@ -356,7 +356,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         treatment_dest_remove = rep(0.2, 3),
         vaccine_efficacy = c(0.5, NA_real_, NA_real_),
         vaccine_booster = c(1, 1, 1), # relative to vaccine efficacy
-        passive_proportion = c(0.02, 0.01, 0.04)
+        passive_intervention_rate = -log(1-c(0.02, 0.01, 0.04))
       ) |>
         lapply(\(x) x[1L]) ->
         pars
