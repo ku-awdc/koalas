@@ -40,19 +40,17 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(num_R, "X1(0,)")
       qassert(num_A, "X1(0,)")
 
-      if(all(c(num_V,num_I,num_N,num_R,num_A)==1L)){
-        private$.alpha <- 1L
-        parameters <- private$check_pars(private$default_pars())
-        state <- private$check_state(private$default_state())
-        private$.obj <- new(KoalaGroupD1, parameters, state)
-      }else if(all(c(num_V,num_I,num_N,num_R,num_A)==3L)){
-        private$.alpha <- 3L
-        parameters <- private$check_pars(private$default_pars())
-        state <- private$check_state(private$default_state())
-        private$.obj <- new(KoalaGroupD3, parameters, state)
+      private$.alpha <- c(V=num_V,I=num_I,N=num_N,R=num_R,A=num_A)
+      parameters <- private$check_pars(private$default_pars())
+      state <- private$check_state(private$default_state())
+
+      if(all(private$.alpha==3L)){
+        private$.obj <- new(KoalaGroupD1, private$.alpha, parameters, state)
+      }else if(all(private$.alpha==1L)){
+        private$.obj <- new(KoalaGroupD3, private$.alpha, parameters, state)
       }else{
-        ## Temporary:
-        stop("Unsupported num_* combination")
+        ## TODO: enable
+        private$.obj <- new(KoalaGroupD0, private$.alpha, parameters, state)
       }
 
       return(self)
@@ -333,7 +331,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     ## Private fields:
     .obj = NULL,
-    .alpha = NA_integer_,
+    .alpha = rep(NA_integer_, 5L),
 
     default_pars = function(){
       list(
@@ -368,10 +366,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       pars[["natural_immune_duration"]] <- pars[["vacc_immune_duration"]] * pars[["natural_immune_duration"]]
 
       ## lifespan_diseased is calibrated so that a certain % die before moving on, so is relative to acute duration:
-      qassert(private$.alpha, "X1(0,)")
-      deadline <- qgamma(0.99, private$.alpha, rate=private$.alpha/pars[["acute_duration"]])
+      qassert(private$.alpha["A"], "X1(0,)")
+      deadline <- qgamma(0.99, private$.alpha["A"], rate=private$.alpha["A"]/pars[["acute_duration"]])
       duration <- optimise(\(x){
-        abs(pars[["lifespan_diseased"]] - pgamma(deadline, private$.alpha, rate=private$.alpha/x))
+        abs(pars[["lifespan_diseased"]] - pgamma(deadline, private$.alpha["A"], rate=private$.alpha["A"]/x))
       }, c(0, 100))$minimum
       # curve(pgamma(x, 3, rate=3/duration), from=0, to=5); abline(v=deadline); abline(h=pars[["lifespan_diseased"]])
       pars[["lifespan_diseased"]] <- duration
@@ -421,6 +419,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         Z = -N,
         SumTx = 0.0,
         SumVx = 0.0,
+        SumRx = 0.0,
         SumMx = 0.0
       )
     },

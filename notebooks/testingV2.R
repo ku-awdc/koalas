@@ -37,6 +37,7 @@ mm <- KoalasV2$new()
 pp <- mm$.__enclos_env__$private$.obj$parameters
 pp["beta"] <- pars[1]
 pp["birthrate"] <- pars[2]
+pp["passive_proportion"] <- 0.01
 mm$.__enclos_env__$private$.obj$parameters <- pp
 
 lapply(seq_len(365*5), \(x){
@@ -46,9 +47,29 @@ lapply(seq_len(365*5), \(x){
   bind_rows() ->
   output
 
+output
+output |> tail()
+
 output |>
-  select(Year,Day,S,I,R,Af,Cf) |>
-  mutate(Total = S+I+R+Af+Cf, Prev = 1-(S/Total)) |>
+  select(S:Z) |>
+  apply(1,sum) |>
+  sapply(\(x) all.equal(x, 0)) |>
+  stopifnot()
+
+output |>
+  mutate(Total = -Z, Fertile = S+V+I+N+R, Infectious=I+Af+Cf+If, Immune=V+R+Vf+Rf, Diseased=Af+Cf) |>
+  select(Year, Day, Total:Diseased) |>
+  pivot_longer(Total:Diseased) |>
+  ggplot(aes(x=Year + Day/365, y=value, col=name)) +
+  geom_line() +
+  labs(caption=str_c("beta: ", pars[1], ",  birthrate: ", pars[2]), x="Time (years)", y="Number") +
+  scale_x_continuous(breaks=0:10) +
+  geom_vline(xintercept=1, lty="dashed")
+
+
+output |>
+  select(Year,Day,S,V,I,R,Af,Cf) |>
+  mutate(Total = S+V+I+R+Af+Cf, Prev = 1-(S/Total)) |>
   filter(Year==1 | Prev>=0.15) |>
   head()
 

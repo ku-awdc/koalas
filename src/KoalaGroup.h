@@ -7,28 +7,32 @@
 
 #include "Compartment.h"
 
-template <auto CTS, size_t s_ncomps>
+template <auto CTS, unsigned int s_nV, unsigned int s_nI, unsigned int s_nN, unsigned int s_nR, unsigned int s_nA>
 class KoalaGroup{
 private:
 
-  Compartment<CTS, 1, 1> m_S {};
-  Compartment<CTS, s_ncomps, 1> m_V {};
-  Compartment<CTS, s_ncomps, 2> m_I;
-  Compartment<CTS, s_ncomps, 2> m_N;
-  Compartment<CTS, s_ncomps, 1> m_R;
+  static constexpr unsigned int s_nS = 1U;
+  static constexpr unsigned int s_nC = 1U;
 
-  Compartment<CTS, s_ncomps, 2> m_Af;
-  Compartment<CTS, 1, 1> m_Cf;
+  Compartment<CTS, s_nS> m_S;
+  Compartment<CTS, s_nV> m_V;
+  Compartment<CTS, s_nI> m_I;
+  Compartment<CTS, s_nN> m_N;
+  Compartment<CTS, s_nR> m_R;
 
-  Compartment<CTS, 1, 1> m_Sf;
-  Compartment<CTS, s_ncomps, 1> m_Vf;
-  Compartment<CTS, s_ncomps, 2> m_If;
-  Compartment<CTS, s_ncomps, 2> m_Nf;
-  Compartment<CTS, s_ncomps, 1> m_Rf;
+  Compartment<CTS, s_nA> m_Af;
+  Compartment<CTS, s_nC> m_Cf;
+
+  Compartment<CTS, s_nS> m_Sf;
+  Compartment<CTS, s_nV> m_Vf;
+  Compartment<CTS, s_nI> m_If;
+  Compartment<CTS, s_nN> m_Nf;
+  Compartment<CTS, s_nR> m_Rf;
 
   double m_Z = 0.0;
   double m_sumTx = 0.0;
   double m_sumVx = 0.0;
+  double m_sumRx = 0.0;
   double m_sumMx = 0.0;
 
   int m_year = 0;
@@ -62,7 +66,8 @@ private:
 
   KoalaGroup() = delete;
 
-  [[nodiscard]] auto to_duration(double const rate) const noexcept(!CTS.debug)
+  [[nodiscard]] auto to_duration(double const rate)
+    const noexcept(!CTS.debug)
     -> double
   {
     double const duration = 1.0 / (rate * 365.0);
@@ -159,10 +164,88 @@ private:
     update_apply();
   }
 
-  auto update_passive() noexcept(!CTS.debug)
+  auto update_passive(double const d_time) noexcept(!CTS.debug)
     -> void
   {
+    if (m_passive_rate > 0.0 )
+    {
+      double const prop = 1.0 - std::exp(-m_passive_rate * d_time);
+      treat_vacc_all(prop);
+
+      update_apply();
+    }
+  }
+
+  template <typename SrcT, typename DstT>
+  auto treat_vacc_noninf(SrcT& src, DstT& dst, double const prop) noexcept(!CTS.debug)
+    -> void
+  {
+    double const test = src.get_sum() * prop;
+
+    // Test positives are also treated but there is no other difference:
+    m_sumTx += (1.0 - m_sp) * test;
+    m_sumVx += test;
+
+    // Move to V(f):
+    dst.insert_value_start( src.take_prop(m_vx_eff * prop) );
+  }
+
+  enum class Shedding { negative, positive };
+
+  template <Shedding s_shed, typename SrcT, typename DstT1, typename DstT2>
+  auto treat_vacc_inf(SrcT& src, DstT1& dst1, DstT2& dst2, double const prop) noexcept(!CTS.debug)
+    -> void
+  {
+    double const test = src.get_sum() * prop;
+
+    // Test positives are treated and have a chance to be cured:
+    double const testpos = test * ((s_shed==Shedding::negative) ? (1.0-m_sp) : m_se);
+    double const testneg = test - testpos;
+    m_sumTx += testpos;
+
+    double const cure = m_tx_dest1 * testpos;
+    double const nshd = m_tx_dest2 * testpos;
+    double const back = m_tx_dest3 * testpos;
+    m_sumVx += (cure + nshd + back);
+    double const remv = test - (cure + nshd + back);
+    m_sumRx += remv;
     
+
+    // Everything except (back+testneg) * (1-m_vx_bst) is removed from src:
+    double const restart = (back+testneg) * m_vx_bst;
+    src.remove_number( cure+nshd+remv+restart );
+
+    // Go back to the src category N(f) or R(f) but with fresh vaccination:
+    src.insert_value_start(restart);
+    // Destinations: (1) R, (2) N, (3) A/C/I, (4) Z
+    dst1.insert_value_start(cure);
+    dst2.insert_value_start(nshd);
+    // Dest 3 is not taken out to start with
+    m_Z += remv;
+  }
+
+  auto treat_vacc_all(double const prop) noexcept(!CTS.debug)
+    -> void
+  {
+    // Susceptible:
+    treat_vacc_noninf(m_S, m_V, prop);
+    treat_vacc_noninf(m_Sf, m_Vf, prop);
+
+    // Already vaccinated:
+    treat_vacc_noninf(m_V, m_V, prop);
+    treat_vacc_noninf(m_Vf, m_Vf, prop);
+
+    // Non-shedding:
+    treat_vacc_inf<Shedding::negative>(m_N, m_R, m_N, prop);
+    treat_vacc_inf<Shedding::negative>(m_Nf, m_Rf, m_Nf, prop);
+
+    // Infectious:
+    treat_vacc_inf<Shedding::positive>(m_I, m_R, m_N, prop);
+    treat_vacc_inf<Shedding::positive>(m_If, m_Rf, m_Nf, prop);
+
+    // Diseased:
+    treat_vacc_inf<Shedding::positive>(m_Af, m_Rf, m_Nf, prop);
+    treat_vacc_inf<Shedding::positive>(m_Cf, m_Rf, m_Nf, prop);
 
     update_apply();
   }
@@ -210,9 +293,11 @@ private:
     return infertile;
   }
 
-
 public:
-  KoalaGroup(Rcpp::NumericVector const parameters, Rcpp::NumericVector const state) noexcept(!CTS.debug)
+  KoalaGroup(Rcpp::IntegerVector ncomps, Rcpp::NumericVector const parameters, Rcpp::NumericVector const state) noexcept(!CTS.debug)
+    : m_S(s_nS), m_V(ncomps["V"]), m_I(ncomps["I"]), m_N(ncomps["N"]), m_R(ncomps["R"]),
+      m_Af(ncomps["A"]), m_Cf(s_nC),
+      m_Sf(s_nS), m_Vf(ncomps["V"]), m_If(ncomps["I"]), m_Nf(ncomps["N"]), m_Rf(ncomps["R"])
   {
     set_pars(parameters);
     set_state(state);
@@ -242,7 +327,7 @@ public:
     m_tx_dest4 = parameters["treatment_dest_remove"];
     m_vx_eff = parameters["vaccine_efficacy"];
     m_vx_bst = parameters["vaccine_booster"];
-    m_passive_rate = std::log(1.0 - parameters["passive_proportion"]) / 365.0;
+    m_passive_rate = -std::log(1.0 - parameters["passive_proportion"]) / 365.0;
 
   }
 
@@ -275,7 +360,7 @@ public:
     ); // Max number of elements is 20
 
     pars.push_back(
-      1.0 - std::exp(m_passive_rate * 365.0),
+      1.0 - std::exp(-m_passive_rate * 365.0),
       "passive_proportion"
     );
 
@@ -302,6 +387,7 @@ public:
     m_Z = state["Z"];
     m_sumTx = state["SumTx"];
     m_sumVx = state["SumVx"];
+    m_sumRx = state["SumRx"];
     m_sumMx = state["SumMx"];
   }
 
@@ -327,9 +413,19 @@ public:
       _["Z"] = m_Z,
       _["SumTx"] = m_sumTx,
       _["SumVx"] = m_sumVx,
+      _["SumRx"] = m_sumRx,
       _["SumMx"] = m_sumMx
     );
     return rv;
+  }
+
+  auto active_sampling(double const max_number) noexcept(!CTS.debug)
+    -> void
+  {
+    double const prop = std::min(1.0, max_number / (get_fertile() + get_infertile()));
+    treat_vacc_all(prop);
+
+    update_apply();
   }
 
   auto update(int const days, double const d_time) noexcept(!CTS.debug)
@@ -345,7 +441,8 @@ public:
       m_time += d_time;
       if(m_time >= 1.0)
       {
-        update_passive();
+        // d_time is 1.0 as this happens once per day:
+        update_passive(1.0);
 
         m_time = 0.0;
         m_day++;
