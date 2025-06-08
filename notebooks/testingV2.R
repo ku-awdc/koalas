@@ -2,20 +2,99 @@ library("tidyverse")
 library("koalas")
 
 ## Compare to Grogan et al
+## Duplicating Grogan et al
+
+We can replicate Figure 2 (panels a:d, not e:f) of Grogan et al by setting parameter values as follows:
+
+  ```{r}
+expand_grid(
+  Scenario = letters[1:4] |> fct(levels = letters[1:6] |> matrix(nrow=2) |> t() |> as.character())
+) |>
+  mutate(
+    vacc_immune_duration = 0,
+    vacc_redshed_duration = 0,
+    natural_immune_duration = case_when(
+      Scenario%in%c("f") ~ 1/0.5,
+      TRUE ~ 0
+    ),
+    beta = 3.0,
+    subcinical_duration = 1/0.6,
+    subclinical_recover_proportion = 0.29,
+    diseased_recover_proportion = 0.0,
+    birthrate = case_when(
+      Scenario=="b" ~ 0.15,
+      TRUE ~ 0.38
+    ),
+    acute_duratuion = 0,
+    lifespan_natural = case_when(
+      Scenario=="b" ~ 1/0.3,
+      TRUE ~ 1/0.2
+    ),
+    lifespan_diseased = case_when(
+      Scenario%in%c("c","e","f") ~ 1/0.5,
+      Scenario%in%c("d") ~ 1/0.9,
+      Scenario%in%c("a","b") ~ 0,
+    ),
+    relative_fecundity = case_when(
+      Scenario%in%c("c","e","f") ~ 0.5,
+      Scenario%in%c("d") ~ 0.1,
+      Scenario%in%c("a","b") ~ 1.0,
+    ),
+  ) ->
+  parameters
+```
+
+```{r}
+parameters |>
+  rowwise() |>
+  group_split() |>
+  pblapply(\(x){
+    model <- KoalasV2$new(1)
+    model$set_state(
+      S = 800.0,
+      V = 0.0,
+      I = 200.0,
+      N = 0.0,
+      R = 0.0,
+      Af = 0.0,
+      Cf = 0.0
+    )
+    model$set_parameters(
+      natural_immune_duration = x[["waning_natural"]],
+      beta = x[["beta"]],
+      subcinical_duration = 1 / [["sigma"]],
+      subclinical_recover_proportion = x[["acute_recovery_prob"]],
+      birthrate = x[["birth_rate"]],
+      acute_duration = 0, # Disable chronic disease
+
+
+    )
+    model$run(20, 0.01) |>
+      select(Time:R, N) |>
+      pivot_longer(-Time, names_to="Compartment", values_to="Number") |>
+      bind_cols(x |> select(Scenario, Capacity))
+  }, cl=6) |>
+  bind_rows() ->
+  res
+```
+
+
+
 mm <- KoalasV2$new(3)
 mm$parameters$acute_duration
 mm$set_parameters(acute_duration = 10)
 mm$parameters$acute_duration
 mm$state$R
-mm$set_state(R=10, Day=1)
 mm$state$R
 mm$state$Day
 
 mm$N
 mm$state
 mm$parameters
+mm$update(5)
 mm$results_wide
-mm$update(50*365)
+mm$update(5)
+mm$results_wide
 
 
 mm$results_wide |>

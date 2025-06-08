@@ -70,6 +70,8 @@ private:
     const noexcept(!CTS.debug)
     -> double
   {
+    if (rate == 0.0) return 0.0;
+    
     double const duration = 1.0 / (rate * 365.0);
     return duration;
   }
@@ -77,6 +79,8 @@ private:
   [[nodiscard]] auto to_rate(double const duration) const noexcept(!CTS.debug)
     -> double
   {
+    if (duration == 0.0) return 0.0;
+    
     double const rate = 1.0 / (duration * 365.0);
     return rate;
   }
@@ -107,7 +111,7 @@ private:
   auto update_birth(double const d_time) noexcept(!CTS.debug)
     -> void
   {
-    double const births = m_birthrate * (get_fertile() + ((1.0 - m_rel_fecundity) * get_infertile())) * d_time;
+    double const births = m_birthrate * (get_fertile() + (m_rel_fecundity * get_infertile())) * d_time;
     // Note: this is correct to be value not rate!
     m_S.insert_value_start(births);
     m_Z -= births;
@@ -430,8 +434,14 @@ public:
   }
 
   auto update(int const days, double const d_time) noexcept(!CTS.debug)
-    -> void
+    -> Rcpp::List
   {
+    if constexpr (CTS.debug)
+    {
+      if(days <= 0) Rcpp::stop("Invalid days argument");
+    }
+    Rcpp::List rv(days);
+    
     int newdays = 0;
     while (newdays < days)
     {
@@ -453,11 +463,15 @@ public:
           m_day = 1;
           m_year++;
         }
+        
+        Rcpp::NumericVector state = get_state();
+        rv[newdays-1] = state;        
       }
-
+      
       Rcpp::checkUserInterrupt();
     };
 
+    return rv;
   }
 
   auto get_vitals() const noexcept(!CTS.debug)

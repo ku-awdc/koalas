@@ -2,7 +2,7 @@
 title: "koalas"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{template}
+  %\VignetteIndexEntry{koalas}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width=8, fig.height=4
 )
 ```
 
@@ -27,7 +28,23 @@ install.packages(c("koalas","tidyverse"),
   repos=c("https://ku-awdc.r-universe.dev/", "https://cran.rstudio.com/"))
 ```
 
-This also installs the tidyverse package from CRAN, which is used in this vignette for plotting etc. Note that C++ compilers are NOT required for installation as long as your installed version of R is current.
+This also installs the tidyverse package from CRAN, which is used in this vignette for plotting etc. Note that C++ compilers are NOT required for installation as long as your installed version of R is current. This should cover most use cases.
+
+Alternatively, you can install the development version directly from GitHub.  To do that you must first pre-install the remotes package (from CRAN) and the IPDMR package (from ku-awdc.r-universe.dev/):
+
+```{r eval=FALSE}
+install.packages(c("IPDMR","remotes"),
+  repos=c("https://ku-awdc.r-universe.dev/", "https://cran.rstudio.com/"))
+```
+
+Then you can install the koalas package from source:
+
+```{r eval=FALSE}
+remotes::install_github("ku-awdc/koalas")
+```
+
+Note that this last step requires C++ compilers.
+
 
 ## Creating a model object
 
@@ -93,29 +110,166 @@ To re-set the model, create a new instance:
 
 ```{r}
 model <- KoalasV2$new()
+model$update(5)
 model$results_wide
 ```
 
+You can also extract aggregated results in a format more suitable for plotting:
 
-## Example
+```{r}
+model$results_long
+```
+
+This is equivalent to:
+
+```{r}
+library("tidyverse")
+
+model$results_wide |>
+  select(Year:Rf) |>
+  mutate(Year = Year + Day/365, Total = rowSums(across(-c(Year, Day)))) |>
+  mutate(Healthy=S+V+N+R, Infectious=I+If+Af+Cf, Diseased=Af+Cf, Infertile=Sf+Vf+Nf+Rf+If+Diseased, Immune=V+Vf+R+Rf) |>
+  select(Year, Total, Healthy:Immune) |>
+  pivot_longer(Total:Immune, names_to="Compartment", values_to="Koalas")
+```
+
+
+## Example 1: calibration
+
+For simple calibration, we most likely want to disable interventions and examine the stable state of the population (over 20 years) given an 11% starting prevalence.  For example, changing beta to 1.75 (from 3.0) gives a prevalence of around 30% after 1 year:
+
+```{r}
+library("tidyverse")
+theme_set(theme_light())
+
+model <- KoalasV2$new()
+
+prev <- 0.11
+N <- 300
+model$set_state(
+  S = N * (1.0-prev),
+  V = 0.0,
+  I = N * prev * 0.6,
+  N = 0.0,
+  R = 0.0,
+  Af = N * prev * 0.3,
+  Cf = N * prev * 0.1,
+  Sf = 0.0,
+  Vf = 0.0,
+  If = 0.0,
+  Nf = 0.0,
+  Rf = 0.0
+)
+
+model$set_parameters(
+  natural_immune_duration = 1.0,
+  beta = 1.75,
+  subcinical_duration = 0.5,
+  subclinical_recover_proportion = 0.05,
+  birthrate = 0.38,
+  acute_duration = 0.4,
+  lifespan_natural = 5,
+  lifespan_diseased = 1.946602,
+  relative_fecundity = 0.0,
+  passive_intervention_rate = 0.0,
+)
+
+model$update(2*365)
+
+model$results_long |>
+  mutate(Percent = Koalas/Sum*100) |>
+  ggplot(aes(x=Year, y=Percent, col=Compartment)) +
+  geom_line() +
+  geom_vline(xintercept=c(0,1), lty="dashed") +
+  geom_hline(yintercept=c(11,30), lty="dotted")
+```
+
+And a population that tends towards extinction over a 20-year period:
+
+```{r}
+model$update(18*365)
+
+model$results_long |>
+  ggplot(aes(x=Year, y=Koalas, col=Compartment)) +
+  geom_line()
+```
+
+
+## Example 2: exploring scenarios
 
 Typical usage will be along the lines of the following:
 
 ### 1. Create a model and set initial state and parameters
 
-
-
-
-You can then extract the results so far as data frame:
-
 ```{r}
+model <- KoalasV2$new()
+
+prev <- 0.11
+N <- 300
+model$set_state(
+  S = N * (1.0-prev),
+  V = 0.0,
+  I = N * prev * 0.6,
+  N = 0.0,
+  R = 0.0,
+  Af = N * prev * 0.3,
+  Cf = N * prev * 0.1,
+  Sf = 0.0,
+  Vf = 0.0,
+  If = 0.0,
+  Nf = 0.0,
+  Rf = 0.0
+)
+
+model$set_parameters(
+  beta = 1.75,
+  passive_intervention_rate = 0
+)
 ```
 
+
+### 2. Run the model for e.g. a 1-year burnin then re-set parameters
+
 ```{r}
-model$state
-model$parameters
-model$results_wide
+model$update(365)
+model$set_parameters(
+  passive_intervention_rate = 0.01
+)
 ```
 
-For more details 
+### 3. Run for 5 years, with active interventions
+
+For example, we can test 10 animals for 10 days every year:
+
+```{r}
+for(y in seq_len(5)){
+  model$update(177)
+  for(d in seq_len(10)){
+    model$active_intervention(10)
+    model$update(1)
+  }
+  model$update(365-10-177)
+}
+```
+
+
+### 4. Extract and plot results
+
+```{r}
+tail(model$results_wide)
+```
+
+Visualisation:
+
+```{r}
+ggplot(model$results_long, aes(x=Year, y=Koalas, col=Compartment)) +
+  geom_line()
+```
+
+
+## Package versions
+
+```{r}
+sessionInfo()
+```
 

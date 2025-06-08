@@ -12,10 +12,12 @@ mlist <- IPDMR:::mlist
 #' @import stringr
 #' @import dplyr
 #' @import tibble
+#' @import tidyr
 #' @importFrom methods new
 #' @importFrom rlang .data
 #' @importFrom checkmate qassert assert_number
 #' @importFrom purrr list_simplify
+#' @importFrom forcats fct
 #'
 #' @export
 KoalasV2 <- R6::R6Class("KoalasV2",
@@ -61,7 +63,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       state <- do.call(self$set_state, args=state)
 
       private$check_state()
-      private$.allres <- list(self$state |> as_tibble())
 
       return(self)
     },
@@ -117,21 +118,22 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
       parameters <- private$.obj$parameters |> as.list()
 
-      rd <- "N1(0,)"
+      dr <- "N1[0,)" # Note: durations of 0 mean a rate of 0!
+      rt <- "N1[0,)"
       pb <- "N1[0,1]"
       zr <- "N1[0,0]"
 
-      parnames <- c("vacc_immune_duration" = rd,
-        "vacc_redshed_duration" = rd,
-        "natural_immune_duration" = rd,
-        "beta" = rd,
-        "subcinical_duration" = rd,
+      parnames <- c("vacc_immune_duration" = dr,
+        "vacc_redshed_duration" = dr,
+        "natural_immune_duration" = dr,
+        "beta" = rt,
+        "subcinical_duration" = dr,
         "subclinical_recover_proportion" = pb,
         "diseased_recover_proportion" = zr,
-        "birthrate" = rd,
-        "acute_duration" = rd,
-        "lifespan_natural" = rd,
-        "lifespan_diseased" = rd,
+        "birthrate" = rt,
+        "acute_duration" = dr,
+        "lifespan_natural" = dr,
+        "lifespan_diseased" = dr,
         "relative_fecundity" = pb,
         "sensitivity" = pb,
         "specificity" = pb,
@@ -141,7 +143,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         "treatment_dest_remove" = pb,
         "vaccine_efficacy" = pb,
         "vaccine_booster" = pb,
-        "passive_intervention_rate" = rd)
+        "passive_intervention_rate" = rt)
 
       argnames <- names(formals(self$set_parameters))
       stopifnot(
@@ -267,16 +269,20 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
       qassert(n_days, "X1(0,)")
       qassert(d_time, "N1(0,)")
+      private$check_state()
 
-      seq_len(n_days) |>
-        lapply(\(x){
-          private$.obj$update(1.0, d_time)
-          private$check_state()
-          as_tibble(self$state)
-        }) |>
+      # If this is the first call to update log time=0:
+      if(length(private$.allres)==0L){
+        private$.allres <- list(self$state |> as_tibble())
+      }
+
+      private$.obj$update(n_days, d_time) |>
+        lapply(as.list) |>
+        lapply(as_tibble) |>
         bind_rows() ->
         newres
 
+      private$check_state()
       private$.allres <- c(private$.allres, list(newres))
 
       invisible(self)
@@ -448,6 +454,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     #' @field results_wide a data frame of results from the model in wide format (read-only)
     results_wide = function(){
+      if(length(private$.allres)==0L) stop("Model has not been updated")
       private$.allres |>
         bind_rows() |>
         select(.data$Year, .data$Day, everything())
@@ -455,9 +462,13 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     #' @field results_long a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)
     results_long = function(){
-      stop("TODO")
-      self$results_wide |>
-        identity()
+      model$results_wide |>
+        select(.data$Year:.data$Rf) |>
+        mutate(Year = .data$Year + .data$Day/365, Total = rowSums(across(-c(.data$Year, .data$Day))), Sum=Total) |>
+        mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf) |>
+        select(.data$Year, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
+        pivot_longer(.data$Total:.data$Immune, names_to="Compartment", values_to="Koalas") |>
+        mutate(Compartment = fct(.data$Compartment, levels=rev(c("Healthy","Immune","Infectious","Diseased","Infertile","Total"))))
     }
 
   )
