@@ -15,8 +15,18 @@ mm$N
 mm$state
 mm$parameters
 mm$results_wide
-mm$update(5)
-mm$results_wide
+mm$update(50*365)
+
+
+mm$results_wide |>
+  select(Year,Day,S,I,R,Af,Cf) |>
+  mutate(Total = S+I+R+Af+Cf) |>
+  pivot_longer(S:Total) |>
+  ggplot(aes(x=Year + Day/365, y=value, col=name)) +
+  geom_line() +
+  labs(caption=str_c("beta: ", pars[1], ",  birthrate: ", pars[2]), x="Time (years)", y="Number") +
+  scale_x_continuous(breaks=0:10) +
+  geom_vline(xintercept=1, lty="dashed")
 
 mm$set_state(V=10)
 

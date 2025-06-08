@@ -14,6 +14,108 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
-library("koalas")
+## Overview
+
+The koalas package is intended to be used for exploring chlamydia control programmes.  The package is currently in an early stage of development.
+
+## Installation
+
+The latest release version of the package can be installed from r-universe:
+
+```{r eval=FALSE}
+install.packages(c("koalas","tidyverse"),
+  repos=c("https://ku-awdc.r-universe.dev/", "https://cran.rstudio.com/"))
 ```
+
+This also installs the tidyverse package from CRAN, which is used in this vignette for plotting etc. Note that C++ compilers are NOT required for installation as long as your installed version of R is current.
+
+## Creating a model object
+
+The koalas model is designed as an encapsulated object, which is created as follows:
+
+```{r}
+library("koalas")
+model <- KoalasV2$new()
+```
+
+This creates a model that you can then interrogate and manipulate using the active bindings and methods supplied. For example, we can set the initial state:
+
+```{r}
+model$set_state(S=299, I=1, R=0, Af=0, Cf=0)
+```
+
+And one or more parameters:
+
+```{r}
+model$set_parameters(birthrate=0.38)
+```
+
+For a complete list of valid state and parameter values see the help file for the class:  ?KoalasV2
+
+You can also see the current state and parameters using their active bindings:
+
+```{r}
+model$state
+model$parameters
+```
+
+
+## Updating the model
+
+To update the model for one or more day, use the update method with given number of days:
+
+```{r}
+model$update(21)
+```
+
+You can then extract the results so far as data frame:
+
+```{r}
+model$results_wide
+```
+
+When you want to apply an active intervention, use the active_intervention method with specified number of animals to test/treat/vaccinate:
+
+```{r}
+model$active_intervention(number=150)
+```
+
+You can then run for another period of time and re-extract results:
+
+```{r}
+model$update(21)
+model$results_wide
+```
+
+Note that results are cumulative, i.e. you can keep updating the model and it will carry on from where it left off. This means you can apply interventions and/or change parameter values at whatever time points are required.
+
+To re-set the model, create a new instance:
+
+```{r}
+model <- KoalasV2$new()
+model$results_wide
+```
+
+
+## Example
+
+Typical usage will be along the lines of the following:
+
+### 1. Create a model and set initial state and parameters
+
+
+
+
+You can then extract the results so far as data frame:
+
+```{r}
+```
+
+```{r}
+model$state
+model$parameters
+model$results_wide
+```
+
+For more details 
+
