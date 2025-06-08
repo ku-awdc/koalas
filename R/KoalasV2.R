@@ -3,19 +3,19 @@ library("R6")
 mlist <- IPDMR:::mlist
 `$` <- IPDMR:::`$`
 
-#' R6 representation of the Koala model
+#' R6/C++ representation of the Koala model V2
 #'
 #' @description
-#' This is a within-group SVIDR(D) model class that can either be run on its own
-#' or embedded in a between-group model.
-#' Note: D is not a real state (and can be negative), it is just used to ensure
-#' that the books are balanced including birth/death
+#' This is the "V2" model that has substantial differences to the Grogan et al model (\code{\link{KoalasV1}})
 #'
 #' @import R6
-#' @importFrom IPDMR apply_rates
-#' @importFrom stats rmultinom quantile
 #' @import stringr
+#' @import dplyr
+#' @import tibble
+#' @importFrom methods new
+#' @importFrom rlang .data
 #' @importFrom checkmate qassert assert_number
+#' @importFrom purrr list_simplify
 #'
 #' @export
 KoalasV2 <- R6::R6Class("KoalasV2",
@@ -24,15 +24,18 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     #' @description
     #' Create a new single-group koala model
-    #' @param num number of sub-components for all states (unless overridden)
+    #'
+    #' @param num number of sub-components for all states (unless overridden) - currently must be either 1 or 3
     #' @param num_V number of sub-components for V (and Vf)
     #' @param num_I number of sub-components for I (and If)
     #' @param num_N number of sub-components for N (and Nf)
     #' @param num_R number of sub-components for R (and Rf)
-    #' @param num_A number of sub-components for A (and If)
+    #' @param num_A number of sub-components for Af
+    #' @param state an initialisation state list - see the set_state method for the allowed values
+    #' @param parameters a list of parameter values - see the set_parameters method for the allowed values
     #'
     #' @return A new within-group model object
-    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num){
+    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list()){
 
       qassert(num_V, "X1(0,)")
       qassert(num_I, "X1(0,)")
@@ -41,190 +44,253 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(num_A, "X1(0,)")
 
       private$.alpha <- c(V=num_V,I=num_I,N=num_N,R=num_R,A=num_A)
-      parameters <- private$check_pars(private$default_pars())
-      state <- private$check_state(private$default_state())
 
+      ## Note: initialise with default parameters/state so they can be overridden later
       if(all(private$.alpha==3L)){
-        private$.obj <- new(KoalaGroupD1, private$.alpha, parameters, state)
+        private$.obj <- new(KoalaGroupD1, private$.alpha, private$default_parameters(), private$default_state())
       }else if(all(private$.alpha==1L)){
-        private$.obj <- new(KoalaGroupD3, private$.alpha, parameters, state)
+        private$.obj <- new(KoalaGroupD3, private$.alpha, private$default_parameters(), private$default_state())
       }else{
         ## TODO: enable
-        private$.obj <- new(KoalaGroupD0, private$.alpha, parameters, state)
+        stop("Sub-compartment sizes must currently be either all 3 or all 1")
+        private$.obj <- new(KoalaGroupD0, private$.alpha, private$default_parameters(), private$default_state())
       }
+
+      stopifnot(is.list(parameters), is.list(state))
+      parameters <- do.call(self$set_parameters, args=parameters)
+      state <- do.call(self$set_state, args=state)
+
+      private$check_state()
+      private$.allres <- list(self$state |> as_tibble())
 
       return(self)
     },
 
     #' @description
-    #' Update the state of the group for a single time point
-    #' @param d_time the desired time step (delta time)
+    #' Change one or more current parameter values
+    #'
+    #' @param vacc_immune_duration #1: Average duration of vaccine-related immunity from infection for susceptibles
+    #' @param vacc_redshed_duration #2: Average duration of treatment/vaccine-related reduction in shedding for infecteds, relative to #1
+    #' @param natural_immune_duration #3:  Average duration of natural immunity following resolved infection , relative to #1
+    #' @param beta #4:  Infection rate (frequency dependent)
+    #' @param subcinical_duration #5:  Average duration of subclinical infection before progression to “acute” disease OR spontaneous recovery
+    #' @param subclinical_recover_proportion #6:  Proportion of animals that will spontaneously recover, rather than progressing to acute disease
+    #' @param diseased_recover_proportion #7:  Spontaneous recovery rate for diseased animals  – ASSUMED DOES NOT HAPPEN SO MUST BE ZERO
+    #' @param birthrate #8:  Birth rate (assumed not density-dependent, for now)
+    #' @param acute_duration #9:  Average duration of acute (increased mortality) phase before progressing to chronic (normal mortality) phase
+    #' @param lifespan_natural #10:  Average lifespan of uninfected koalas (assumed not density-dependent, for now)
+    #' @param lifespan_diseased #11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25% die before entering Cf
+    #' @param relative_fecundity #12:  Relative fecundity of diseased animals - NOTE: we ignore males as only females are important for reproduction
+    #' @param sensitivity sensitivity of lab test to detect shedding in I(f), Af, Cf
+    #' @param specificity specificity of lab test to not detect shedding in other compartments
+    #' @param treatment_dest_R proportion of treated I(f)/Af/Cf animals that are cured of infection (go to R(f))
+    #' @param treatment_dest_N proportion of treated I(f)/Af/Cf animals that are released as non-shedding (go to N(f))
+    #' @param treatment_dest_IAC proportion of treated I(f)/Af/Cf animals that are released while still shedding (possibly due to a false-negative test)
+    #' @param treatment_dest_remove proportion of treated I(f)/Af/Cf animals that are removed permanently due to failure to cure
+    #' @param vaccine_efficacy proportion of S(f) animals that have effective vaccination i.e. go to V(f)
+    #' @param vaccine_booster proportion of already-vaccinated/immune animals that re-start their time in that category due to the “booster effect” i.e. V(f), N(f), and R(f)
+    #' @param passive_intervention_rate rate at which animals are brought in for test/treatment/vaccination passively (can be interpreted as the expected number of times per year each animal is brought in)
+    #'
     #' @return self, invisibly
-    update = function(d_time){
+    set_parameters = function(
+      vacc_immune_duration,
+      vacc_redshed_duration,
+      natural_immune_duration,
+      beta,
+      subcinical_duration,
+      subclinical_recover_proportion,
+      diseased_recover_proportion,
+      birthrate,
+      acute_duration,
+      lifespan_natural,
+      lifespan_diseased,
+      relative_fecundity,
+      sensitivity,
+      specificity,
+      treatment_dest_R,
+      treatment_dest_N,
+      treatment_dest_IAC,
+      treatment_dest_remove,
+      vaccine_efficacy,
+      vaccine_booster,
+      passive_intervention_rate){
 
-      assert_number(d_time, lower=0)
-      private$check_state()
+      parameters <- private$.obj$parameters |> as.list()
 
-      # Do birth and death separately, first:
-      if(is.finite(private$.carrying_capacity)){
-        mort_rt <- private$.mortality_natural + ((private$.birth_rate - private$.mortality_natural) * private$.N/private$.carrying_capacity)
-      }else{
-        mort_rt <- private$.mortality_natural
-      }
+      rd <- "N1(0,)"
+      pb <- "N1[0,1]"
+      zr <- "N1[0,0]"
 
-      ## Birth (leaving Z):
-      zrt <- private$.birth_rate * (private$.N + ((private$.relative_fecundity-1.0) * private$.D))
-      if(private$.update_type=="deterministic"){
-        leave_Z <- zrt*d_time
-      }else if(private$.update_type=="stochastic"){
-        leave_Z <- rpois(1, zrt*d_time)
-      }else{
-        stop("Internal logic error")
-      }
+      parnames <- c("vacc_immune_duration" = rd,
+        "vacc_redshed_duration" = rd,
+        "natural_immune_duration" = rd,
+        "beta" = rd,
+        "subcinical_duration" = rd,
+        "subclinical_recover_proportion" = pb,
+        "diseased_recover_proportion" = zr,
+        "birthrate" = rd,
+        "acute_duration" = rd,
+        "lifespan_natural" = rd,
+        "lifespan_diseased" = rd,
+        "relative_fecundity" = pb,
+        "sensitivity" = pb,
+        "specificity" = pb,
+        "treatment_dest_R" = pb,
+        "treatment_dest_N" = pb,
+        "treatment_dest_IAC" = pb,
+        "treatment_dest_remove" = pb,
+        "vaccine_efficacy" = pb,
+        "vaccine_booster" = pb,
+        "passive_intervention_rate" = rd)
 
-      leave_S <- apply_rates(private$.S, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
-      leave_I <- apply_rates(private$.I, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
-      leave_D <- apply_rates(private$.D, private$.mortality_disease+mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
-      leave_R <- apply_rates(private$.R, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
-      leave_V <- apply_rates(private$.V, mort_rt, d_time, update_type = private$.update_type) |> as.numeric()
+      argnames <- names(formals(self$set_parameters))
+      stopifnot(
+        length(parnames) == length(parameters),
+        length(argnames) == length(parameters),
+        names(parnames) %in% names(parameters),
+        names(argnames) %in% names(parameters)
+      )
 
-      total_deaths <- leave_S+leave_I+leave_D+leave_R+leave_V
-      private$.Z <- private$.Z + total_deaths - leave_Z
-      private$.S <- private$.S + leave_Z - leave_S
-      private$.I <- private$.I - leave_I
-      private$.D <- private$.D - leave_D
-      private$.R <- private$.R - leave_R
-      private$.V <- private$.V - leave_V
-      private$.N <- private$.N + leave_Z - total_deaths
-
-      private$check_state()
-
-
-      # Then do infection dynamics:
-      mort_rt <- 0
-      leave_Z <- 0
-
-      ## Leaving S (infection or death):
-      if((private$.I + private$.D) == 0){
-        trans_rt <- private$.trans_external
-      }else{
-        trans_rt <- private$.trans_external + private$.beta * (private$.I + private$.D) / private$.N
-      }
-      leave_S <- apply_rates(private$.S,
-                             c(trans_rt, mort_rt),
-                             d_time,
-                             update_type = private$.update_type)
-
-      ## Leaving I (recovery/disease, or death):
-      leave_I <- apply_rates(private$.I,
-                             c(private$.sigma, mort_rt),
-                             d_time,
-                             update_type = private$.update_type)
-      ## The sigma (->D or ->S) must be separated afterwards:
-      stopifnot(dim(leave_I)==c(1,2))
-      if(private$.update_type=="deterministic"){
-        leave_I <- cbind(leave_I, leave_I[,1] * private$.acute_recovery_prob)
-      }else if(private$.update_type=="stochastic"){
-        leave_I <- cbind(leave_I, rbinom(nrow(leave_I), leave_I[,1], private$.acute_recovery_prob))
-      }else{
-        stop("Internal logic error")
-      }
-      leave_I[,1] <- leave_I[,1] - leave_I[,3]
-
-      ## Leaving D (recovery, disease-related mortality, general mortality):
-      leave_D <- apply_rates(private$.D,
-                             c(private$.recovery, 0, mort_rt),
-                             d_time,
-                             update_type = private$.update_type)
-
-      ## Leaving R (waning immunity, mortality):
-      leave_R <- apply_rates(private$.R,
-                             c(private$.waning_natural, mort_rt),
-                             d_time,
-                             update_type = private$.update_type)
-
-      ## Leaving V (waning immunity, mortality):
-      leave_V <- apply_rates(private$.V,
-                             c(private$.waning_vaccine, mort_rt),
-                             d_time,
-                             update_type = private$.update_type)
-
-      ## Bookkeeping - NB births/deaths will all be zero here!
-      total_deaths <- sum(leave_S[,2], leave_I[,2], leave_D[,2:3], leave_R[,2], leave_V[,2])
-      private$.Z <- private$.Z + total_deaths - leave_Z
-      private$.S <- private$.S + leave_Z + leave_R[,1] + leave_I[,3] + leave_V[,1] - sum(leave_S)
-      private$.I <- private$.I + leave_S[,1] - sum(leave_I)
-      private$.D <- private$.D + leave_I[,1] - sum(leave_D)
-      private$.R <- private$.R + leave_D[,1] - sum(leave_R)
-      private$.V <- private$.V - sum(leave_V)
-      private$.N <- private$.N + leave_Z - total_deaths
-
-      private$.time <- private$.time + d_time
-      private$check_state()
-
-      invisible(self)
-
-    },
-
-    #' @description
-    #' Update the state of the group for several time points
-    #' @param add_time the additional time to add to the current time of the model
-    #' @param d_time the desired time step (delta time)
-    #' @param thin thinning parameter (currently ignored)
-    #' @return a data frame of the model state at each (new) time point
-    run = function(add_time, d_time, thin=1){
-      c(
-        if(self$time==0) list(self$state) else list(),
-        lapply(seq(self$time+d_time, self$time+add_time, by=d_time), function(x){
-          self$update(d_time)$state
-        })
-      ) |>
-        bind_rows()
-    },
-
-    #' @description
-    #' Implement a (one-time) vaccination effort at the current time point
-    #' @param number the (maximum) number of animals to vaccinate (ignored if proportion is supplied)
-    #' @param proportion the proportion of animals to vaccinate
-    #' @param efficacy the efficacy of the vaccine i.e. probability of the animal moving to V (from S, I or D - R and V do not move)
-    vaccinate = function(number, proportion, efficacy){
-
-      stopifnot(private$.update_type=="deterministic")
-      if(missing(proportion)){
-        qassert(number, "N1(0,]")
-        proportion <- number / private$.N
-        if(proportion>1){
-          warning("Requested more vaccinations than available animals")
-          proportion <- 1
+      # Set and check
+      for(pp in names(parnames)){
+        if(!do.call("missing", list(pp))){
+          parameters[[pp]] <- get(pp)
+          qassert(parameters[[pp]], parnames[pp])
         }
       }
 
-      qassert(proportion, "N1(0,1)")
-      qassert(efficacy, "N1(0,1)")
+      # Additional check
+      sumdst <- parameters[["treatment_dest_R"]] + parameters[["treatment_dest_N"]] + parameters[["treatment_dest_IAC"]] + parameters[["treatment_dest_remove"]]
+      if(!all.equal(sumdst, 1.0)) stop("The treatment_dest parameters must sum to 1")
 
-      for(cc in c(".S",".I",".D")){
-        newv <- private[[cc]] * proportion * efficacy
-        private[[cc]] <- private[[cc]] - newv
-        private$.V <- private$.V + newv
+      private$.obj$parameters <- list_simplify(parameters)
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Change one or more current state values
+    #'
+    #' @param S number of S
+    #' @param V number of V
+    #' @param I number of I
+    #' @param N number of N
+    #' @param R number of R
+    #' @param Af number of Af
+    #' @param Cf number of Cf
+    #' @param Sf number of Sf
+    #' @param Vf number of Vf
+    #' @param If number of If
+    #' @param Nf number of Nf
+    #' @param Rf number of Rf
+    #' @param Year current year (you probably shouldn't change this)
+    #' @param Day current day (you probably shouldn't change this)
+    #' @param SumTx cumulative total number of animals treated (you probably shouldn't change this)
+    #' @param SumVx cumulative total number of animals vaccinated (you probably shouldn't change this)
+    #' @param SumRx cumulative total number of animals removed due to failure to cure (you probably shouldn't change this)
+    #' @param SumMx cumulative mortality due to disease excluding SumRx (you probably shouldn't change this)
+    #'
+    #' @return self, invisibly
+    set_state = function(
+      S,
+      V,
+      I,
+      N,
+      R,
+      Af,
+      Cf,
+      Sf,
+      Vf,
+      If,
+      Nf,
+      Rf,
+      Year,
+      Day,
+      SumTx,
+      SumVx,
+      SumRx,
+      SumMx
+    ){
+
+      state <- private$.obj$state |> as.list()
+      state[["Z"]] <- NULL
+
+      sn <- c("S",
+        "V",
+        "I",
+        "N",
+        "R",
+        "Af",
+        "Cf",
+        "Sf",
+        "Vf",
+        "If",
+        "Nf",
+        "Rf",
+        "Year",
+        "Day",
+        "SumTx",
+        "SumVx",
+        "SumRx",
+        "SumMx")
+      statenames <- rep("N1[0,)", length(sn))
+      names(statenames) <- sn
+      statenames[c("Year","Day")] <- "X1[0,)"
+
+      argnames <- names(formals(self$set_state))
+      stopifnot(
+        length(statenames) == length(state),
+        length(argnames) == length(state),
+        names(statenames) %in% names(state),
+        names(argnames) %in% names(state)
+      )
+
+      # Set and check
+      for(pp in names(statenames)){
+        if(!do.call("missing", list(pp))){
+          state[[pp]] <- get(pp)
+          qassert(state[[pp]], statenames[pp])
+        }
       }
 
-      private$check_state()
+      private$.obj$state <- list_simplify(state)
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Update the model for one or more day
+    #' @param n_days the number of days to update for
+    #' @param d_time the desired time step (delta time)
+    #' @return self, invisibly
+    update = function(n_days = 1L, d_time=1/24){
+
+      qassert(n_days, "X1(0,)")
+      qassert(d_time, "N1(0,)")
+
+      seq_len(n_days) |>
+        lapply(\(x){
+          private$.obj$update(1.0, d_time)
+          private$check_state()
+          as_tibble(self$state)
+        }) |>
+        bind_rows() ->
+        newres
+
+      private$.allres <- c(private$.allres, list(newres))
 
       invisible(self)
     },
 
     #' @description
     #' Implement a (one-time) active sampling/capture/testing of all animals
-    #' @param number the (maximum) number of animals to test and remove (ignored if proportion is supplied)
-    #' @param proportion the proportion of animals to test and remove
-    #' @param sensitivity the sensitivity of the test
-    #' @param specificity the specificity of the test
-    active_test = function(number, proportion, sensitivity, specificity){
+    #' @param number the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)
+    #' @param proportion the proportion of animals to test/treat/vaccinate
+    active_intervention = function(number, proportion){
 
-      stopifnot(private$.update_type=="deterministic")
       if(missing(proportion)){
         qassert(number, "N1(0,]")
-        proportion <- number / private$.N
+        proportion <- number / self$N
         if(proportion>1){
           warning("Requested more vaccinations than available animals")
           proportion <- 1
@@ -232,98 +298,22 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       }
 
       qassert(proportion, "N1(0,1)")
-      qassert(sensitivity, "N1(0,1)")
-      qassert(specificity, "N1(0,1)")
 
-      for(cc in c(".S",".V",".R")){
-        testpos <- private[[cc]] * proportion * (1-specificity)
-        private[[cc]] <- private[[cc]] - testpos
-        private$.N <- private$.N - testpos
-        private$.Cfp <- private$.Cfp + testpos
-      }
-      for(cc in c(".I",".D")){
-        testpos <- private[[cc]] * proportion * sensitivity
-        private[[cc]] <- private[[cc]] - testpos
-        private$.N <- private$.N - testpos
-        private$.Ctp <- private$.Ctp + testpos
-      }
-
+      private$.obj$active_intervention(proportion)
       private$check_state()
 
       invisible(self)
-    },
-
-    #' @description
-    #' Implement a (one-time) passive sampling/capture/testing of diseased animals
-    #' @param number the (maximum) number of animals to test and remove (ignored if proportion is supplied)
-    #' @param proportion the proportion of animals to test and remove
-    #' @param sensitivity the sensitivity of the test
-    #' @param specificity the specificity of the test
-    #' @param prevalence_other the prevalence of other conditions that resemble clinical disease
-    passive_test = function(number, proportion, sensitivity, specificity, prevalence_other){
-
-      stopifnot(private$.update_type=="deterministic")
-      if(missing(proportion)){
-        qassert(number, "N1(0,]")
-        proportion <- number / private$.N
-        if(proportion>1){
-          warning("Requested more vaccinations than available animals")
-          proportion <- 1
-        }
-      }
-
-      qassert(proportion, "N1(0,1)")
-      qassert(sensitivity, "N1(0,1)")
-      qassert(specificity, "N1(0,1)")
-      qassert(prevalence_other, "N1(0,1)")
-
-      for(cc in c(".S",".V",".R")){
-        testpos <- private[[cc]] * prevalence_other * proportion * (1-specificity)
-        private[[cc]] <- private[[cc]] - testpos
-        private$.N <- private$.N - testpos
-        private$.Cfp <- private$.Cfp + testpos
-      }
-      for(cc in c(".I")){
-        testpos <- private[[cc]] * prevalence_other * proportion * sensitivity
-        private[[cc]] <- private[[cc]] - testpos
-        private$.N <- private$.N - testpos
-        private$.Ctp <- private$.Ctp + testpos
-      }
-      for(cc in c(".D")){
-        testpos <- private[[cc]] * proportion * sensitivity
-        private[[cc]] <- private[[cc]] - testpos
-        private$.N <- private$.N - testpos
-        private$.Ctp <- private$.Ctp + testpos
-      }
-
-      private$check_state()
-      invisible(self)
-
     },
 
     #' @description
     #' Print method giving an overview of the current state and parameter values
     #' @return self, invisibly
     print = function(){
-      if(is.na(private$.group_name)){
-        cat("An SEIR model with ")
-      }else{
-        cat("An SEIR model with identifier/name '", private$.group_name, "' and ", sep="")
-      }
-      cat("the following properties:\n\t",
-        "S/E/I/R (N) = ", self$S, "/", self$E, "/", self$I, "/", self$R, " (", self$N, ")\n\t",
-        "beta/omega/gamma/delta = ", self$beta, "/", self$omega, "/", self$gamma, "/", self$delta, "\n\t",
-        "vacc/repl/cull = ", self$vacc, "/", self$repl, "/", self$cull, "\n\t",
-        "E compartments = ", private$.numE, "\n\t",
-        "I compartments = 1\n\t",
-        "R compartments = 1\n\t",
-        "external transmission = ", private$.trans_external, "\n\t",
-        "update type = ", private$.update_type, "\n\t",
-        "transmission type = ", private$.transmission_type, "\n\t",
-        "current time = ", self$time, "\n\t",
-        sep="")
-      invisible(self)
 
+      cat("Koala model with following state:\n")
+      print(self$state)
+
+      invisible(self)
     }
   ),
 
@@ -332,8 +322,9 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     ## Private fields:
     .obj = NULL,
     .alpha = rep(NA_integer_, 5L),
+    .allres = list(),
 
-    default_pars = function(){
+    default_parameters = function(){
       list(
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
@@ -388,14 +379,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       unlist(pars)
     },
 
-    check_pars = function(pars){
-
-      ## TODO
-
-      pars
-
-    },
-
     default_state = function(){
 
       prev <- 0.0205
@@ -424,244 +407,58 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       )
     },
 
-    check_state = function(state){
-      ## TODO
-      state
-    },
-
-
-
-    ## TO REMOVE
-
-    .Z = 0,
-    .S = 0,
-    .I = 0,
-    .D = 0,
-    .R = 0,
-    .V = 0,
-    .Ctp = 0,
-    .Cfp = 0,
-    .N = 0,
-    .T = 0,
-
-    .update_type = character(), # Set at initialisation
-    .transmission_type = character(), # Set at initialisation
-    .group_name = NA_character_,
-
-    .time = 0,
-
-    .mortality_natural = 0.25,
-    .mortality_disease = 1.5,
-    .carrying_capacity = Inf,
-    .birth_rate = 0.38,
-    .relative_fecundity = 0.5,
-
-    .beta = 4.0,
-    .sigma = 1.33,
-    .acute_recovery_prob = 0.29,
-    .recovery = 0.05,
-    .waning_natural = 0.05,
-    .waning_vaccine = 0.05,
-
-    .trans_external = 0,
-
-    ## Private methods:
-    check_state_old = function(){
-
-      if(private$.update_type=="stochastic"){
-        qassert(private$.Z, "X1")
-      }else if(private$.update_type=="deterministic"){
-        qassert(private$.Z, "N1")
-      }else{
-        stop("Internal logic error")
-      }
-      qassert(private$.Z, private$compartment_rule() |> str_replace(fixed("[0,)"), ""))
-      qassert(private$.S, private$compartment_rule())
-      qassert(private$.I, private$compartment_rule())
-      qassert(private$.D, private$compartment_rule())
-      qassert(private$.R, private$compartment_rule())
-      qassert(private$.V, private$compartment_rule())
-      qassert(private$.Ctp, private$compartment_rule())
-      qassert(private$.Cfp, private$compartment_rule())
-      qassert(private$.N, private$compartment_rule())
-      qassert(private$.T, private$compartment_rule())
-
-      calcN <- private$.S + private$.I + private$.D + private$.R + private$.V
-      if(private$.update_type=="stochastic"){
-        stopifnot(calcN == private$.N)
-      }else if(private$.update_type=="deterministic"){
-        #if(!isTRUE(all.equal(calcN, private$.N))) browser()
-        stopifnot(isTRUE(all.equal(calcN, private$.N)))
-      }else{
-        stop("Internal logic error")
-      }
-
-      calcT <- calcN + private$.Z + private$.Ctp + private$.Cfp
-      if(private$.update_type=="stochastic"){
-        stopifnot(calcT == private$.T)
-      }else if(private$.update_type=="deterministic"){
-        stopifnot(isTRUE(all.equal(calcT, private$.T)))
-      }else{
-        stop("Internal logic error")
-      }
-
-    },
-
-    reset_N = function(){
-      private$.N <- private$.S + private$.I + private$.D + private$.R + private$.V
-      private$.T <- private$.N + private$.Z + private$.Ctp + private$.Cfp
-      ## Run the check_state method to ensure everything is OK:
-      private$check_state()
-    },
-
-    ## A utility function to get the correct rule for checking S/E/I/R/N:
-    compartment_rule = function(length=1){
-      qassert(length, "X1(0,)")
-      if(private$.update_type=="stochastic"){
-        tt <- "X"
-      }else if(private$.update_type=="deterministic"){
-        tt <- "N"
-      }else{
-        stop("Internal logic error")
-      }
-      str_c(tt, length, "[0,)")
+    check_state = function(){
+      state <- private$.obj$state
+      stopifnot(state[-15] >= 0, !is.na(state), is.finite(state), state["Day"]<=365)
+      state <- state[-c(1:2, 16:19)]
+      stopifnot(all.equal(sum(state),0))
     }
+
   ),
 
   ## Active binding functions:
   active = mlist(
 
-    #' @field S number of susceptible animals
-    S = function(value){
-      if(missing(value)) return(private$.S)
-      qassert(value, private$compartment_rule())
-      private$.S <- value
-      private$reset_N()
-    },
-    #' @field I total number of infected animals
-    I = function(value){
-      if(missing(value)) return(sum(private$.I))
-      qassert(value, private$compartment_rule())
-      private$.I <- value
-      private$reset_N()
-    },
-    #' @field D number of diseased animals
-    D = function(value){
-      if(missing(value)) return(private$.D)
-      qassert(value, private$compartment_rule())
-      private$.D <- value
-      private$reset_N()
-    },
-    #' @field R number of recovered animals
-    R = function(value){
-      if(missing(value)) return(private$.R)
-      qassert(value, private$compartment_rule())
-      private$.R <- value
-      private$reset_N()
-    },
-    #' @field V number of vaccinated animals
-    V = function() return(private$.V),
-    #' @field Ctp cumulative number of animals removed as true positives on active/passive sampling
-    Ctp = function() return(private$.Ctp),
-    #' @field Cfp cumulative number of animals removed as false positives on active/passive sampling
-    Cfp = function() return(private$.Cfp),
-
-    #' @field mortality_natural mortality rate from natural causes
-    mortality_natural = function(value){
-      if(missing(value)) return(private$.mortality_natural)
-      qassert(value, "N1[0,)")
-      private$.mortality_natural <- value
-    },
-    #' @field mortality_disease mortality rate from disease
-    mortality_disease = function(value){
-      if(missing(value)) return(private$.mortality_disease)
-      qassert(value, "N1[0,)")
-      private$.mortality_disease <- value
-    },
-    #' @field carrying_capacity number of animals supported by the population (can be Inf or NA)
-    carrying_capacity = function(value){
-      if(missing(value)) return(private$.carrying_capacity)
-      qassert(value, "n1(0,]")
-      private$.carrying_capacity <- value
-    },
-    #' @field birth_rate birth rate
-    birth_rate = function(value){
-      if(missing(value)) return(private$.birth_rate)
-      qassert(value, "N1[0,)")
-      private$.birth_rate <- value
-    },
-    #' @field relative_fecundity fecundity of diseased animals relative to other states (S/I/R/V)
-    relative_fecundity = function(value){
-      if(missing(value)) return(private$.relative_fecundity)
-      qassert(value, "N1[0,1]")
-      private$.relative_fecundity <- value
-    },
-
-    #' @field beta the transmission rate parameter per unit time (must be positive)
-    beta = function(value){
-      if(missing(value)) return(private$.beta)
-      assert_number(value, lower=0)
-      private$.beta <- value
-    },
-    #' @field sigma the progression rate from I to D or S
-    sigma = function(value){
-      if(missing(value)) return(private$.sigma)
-      assert_number(value, lower=0)
-      private$.sigma <- value
-    },
-    #' @field acute_recovery_prob the probability that a progression from I will go to S rather than D
-    acute_recovery_prob = function(value){
-      if(missing(value)) return(private$.acute_recovery_prob)
-      qassert(value, "N1[0,1]")
-      private$.acute_recovery_prob <- value
-    },
-    #' @field recovery the recovery rate parameter per unit time (must be positive)
-    recovery = function(value){
-      if(missing(value)) return(private$.recovery)
-      assert_number(value, lower=0)
-      private$.recovery <- value
-    },
-    #' @field waning_natural the immune waning rate from R (following natural infection)
-    waning_natural = function(value){
-      if(missing(value)) return(private$.waning_natural)
-      assert_number(value, lower=0)
-      private$.waning_natural <- value
-    },
-    #' @field waning_vaccine the immune waning rate from V (following vaccination)
-    waning_vaccine = function(value){
-      if(missing(value)) return(private$.waning_vaccine)
-      assert_number(value, lower=0)
-      private$.waning_vaccine <- value
-    },
-
     #' @field time the current time point of the model (read-only)
     time = function(){
-      private$.time
+      private$.obj$vitals[1:2]
     },
+
     #' @field N the total number of animals alive (read-only)
     N = function(){
-      private$.N
+      private$.obj$vitals[3] |> as.numeric()
     },
 
-    #' @field state a data frame representing the current state of the model (read-only)
-    state = function(){
-      tibble(Time = self$time, S = self$S, I = self$I, D = self$D, R = self$R,
-             V = self$V, N = self$N, Ctp = self$Ctp, Cfp = self$Cfp)
+    #' @field state a list representing the current state of the model
+    state = function(value){
+      if(missing(value)){
+        state <- as.list(private$.obj$state[c(3:14,1:2,16:19)])
+        return(state)
+      }
+      stopifnot(is.list(value))
+      do.call(self$set_state, args=value)
     },
 
-    #' @field trans_external the external transmission parameter
-    trans_external = function(value){
-      if(missing(value)) return(private$.trans_external)
-      qassert(value, "N1[0,)")
-      private$.trans_external <- value
+    #' @field parameters a list of parameter values
+    parameters = function(value){
+      if(missing(value)) return(private$.obj$parameters |> as.list())
+      stopifnot(is.list(value))
+      do.call(self$set_parameters, args=value)
     },
 
-    #' @field transmission_type either frequency or density
-    transmission_type = function(value){
-      if(missing(value)) return(private$.transmission_type)
-      stopifnot(self$time == 0)
-      private$.transmission_type <- match.arg(value,
-        choices=c("frequency","density"))
+    #' @field results_wide a data frame of results from the model in wide format (read-only)
+    results_wide = function(){
+      private$.allres |>
+        bind_rows() |>
+        select(.data$Year, .data$Day, everything())
+    },
+
+    #' @field results_long a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)
+    results_long = function(){
+      stop("TODO")
+      self$results_wide |>
+        identity()
     }
+
   )
 )

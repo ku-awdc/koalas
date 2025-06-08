@@ -27,8 +27,9 @@ RCPP_MODULE(koalas){
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
 
     .method("update", &KoalaGroupD3::update, "Update method")
-    .method("active_sampling", &KoalaGroupD3::active_sampling, "Apply an active sampling intervention")
+    .method("active_intervention", &KoalaGroupD3::active_intervention, "Apply an active sampling intervention")
 
+    .property("vitals", &KoalaGroupD3::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD3::get_state, &KoalaGroupD3::set_state, "Get and set state")
     .property("parameters", &KoalaGroupD3::get_pars, &KoalaGroupD3::set_pars, "Get and set parameters")
   ;
@@ -39,8 +40,9 @@ RCPP_MODULE(koalas){
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
 
     .method("update", &KoalaGroupD1::update, "Update method")
-    .method("active_sampling", &KoalaGroupD1::active_sampling, "Apply an active sampling intervention")
+    .method("active_intervention", &KoalaGroupD1::active_intervention, "Apply an active sampling intervention")
 
+    .property("vitals", &KoalaGroupD1::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD1::get_state, &KoalaGroupD1::set_state, "Get and set state")
     .property("parameters", &KoalaGroupD1::get_pars, &KoalaGroupD1::set_pars, "Get and set parameters")
   ;
@@ -51,8 +53,9 @@ RCPP_MODULE(koalas){
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
 
     .method("update", &KoalaGroupD0::update, "Update method")
-    .method("active_sampling", &KoalaGroupD0::active_sampling, "Apply an active sampling intervention")
+    .method("active_intervention", &KoalaGroupD0::active_intervention, "Apply an active sampling intervention")
 
+    .property("vitals", &KoalaGroupD0::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD0::get_state, &KoalaGroupD0::set_state, "Get and set state")
     .property("parameters", &KoalaGroupD0::get_pars, &KoalaGroupD0::set_pars, "Get and set parameters")
   ;

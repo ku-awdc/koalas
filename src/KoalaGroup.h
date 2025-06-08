@@ -209,7 +209,7 @@ private:
     m_sumVx += (cure + nshd + back);
     double const remv = test - (cure + nshd + back);
     m_sumRx += remv;
-    
+
 
     // Everything except (back+testneg) * (1-m_vx_bst) is removed from src:
     double const restart = (back+testneg) * m_vx_bst;
@@ -371,8 +371,6 @@ public:
   auto set_state(Rcpp::NumericVector const state) noexcept(!CTS.debug)
     -> void
   {
-    m_year = static_cast<int>(state["Year"]);
-    m_day = static_cast<int>(state["Day"]);
     m_S.set_sum(state["S"]);
     m_V.set_sum(state["V"]);
     m_I.set_sum(state["I"]);
@@ -385,11 +383,15 @@ public:
     m_If.set_sum(state["If"]);
     m_Nf.set_sum(state["Nf"]);
     m_Rf.set_sum(state["Rf"]);
-    m_Z = state["Z"];
+
+    m_year = static_cast<int>(state["Year"]);
+    m_day = static_cast<int>(state["Day"]);
     m_sumTx = state["SumTx"];
     m_sumVx = state["SumVx"];
     m_sumRx = state["SumRx"];
     m_sumMx = state["SumMx"];
+
+    m_Z = -(m_S+m_V+m_I+m_N+m_R+m_Af+m_Cf+m_Vf+m_If+m_Nf+m_Rf);
   }
 
   [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
@@ -420,12 +422,10 @@ public:
     return rv;
   }
 
-  auto active_sampling(double const max_number) noexcept(!CTS.debug)
+  auto active_intervention(double const prop) noexcept(!CTS.debug)
     -> void
   {
-    double const prop = std::min(1.0, max_number / (get_fertile() + get_infertile()));
     treat_vacc_all(prop);
-
     update_apply();
   }
 
@@ -458,6 +458,19 @@ public:
       Rcpp::checkUserInterrupt();
     };
 
+  }
+
+  auto get_vitals() const noexcept(!CTS.debug)
+    -> Rcpp::NumericVector
+  {
+    using namespace Rcpp;
+    NumericVector rv = NumericVector::create(
+      _["Year"] = static_cast<double>(m_year),
+      _["Day"] = static_cast<double>(m_day),
+      _["Alive"] = get_fertile() + get_infertile()
+    );
+
+    return rv;
   }
 
 };

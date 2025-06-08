@@ -10,15 +10,10 @@ What the package does (one paragraph).
 }
 \details{
 Some description of the package
-}
-\examples{
-## An example function:
-df <- example_function()
-df
+\subsection{To cite this package in publications use:}{
 
-## To cite this package in publications use:
 citation("koalas")
-
+}
 }
 \references{
 Some article that you might want users to look at

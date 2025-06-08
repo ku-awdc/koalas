@@ -1,7 +1,7 @@
 Package: koalas
 Title: A Disease Model for Chlamydia in Koalas
-Version: 0.2.1-1
-Date: 2025-05-30
+Version: 0.3.0-1
+Date: 2025-06-08
 Description: What the package does (one paragraph).
 Authors@R:
   c(
@@ -16,9 +16,12 @@ Depends:
 LinkingTo:
   Rcpp
 Imports:
+  methods,
   rlang,
   dplyr,
   tibble,
+  purrr,
+  stringr,
   IPDMR,
   checkmate,
   Rcpp,
@@ -29,6 +32,7 @@ Suggests:
   rmarkdown,
   spelling,
   testthat (>= 3.0.0)
+Additional_repositories: https://ku-awdc.r-universe.dev/
 NeedsCompilation:  yes
 SystemRequirements: C++20
 Config/testthat/edition: 3

@@ -1,6 +1,38 @@
 library("tidyverse")
 library("koalas")
 
+## Compare to Grogan et al
+mm <- KoalasV2$new(3)
+mm$parameters$acute_duration
+mm$set_parameters(acute_duration = 10)
+mm$parameters$acute_duration
+mm$state$R
+mm$set_state(R=10, Day=1)
+mm$state$R
+mm$state$Day
+
+mm$N
+mm$state
+mm$parameters
+mm$results_wide
+mm$update(5)
+mm$results_wide
+
+mm$set_state(V=10)
+
+mm <- KoalasV2$new(1)
+
+
+
+pp <- mm$.__enclos_env__$private$.obj$parameters
+pp["beta"] <- pars[1]
+pp["birthrate"] <- pars[2]
+pp["passive_intervention_rate"] <- 0.5
+mm$.__enclos_env__$private$.obj$parameters <- pp
+
+
+
+
 ff <- function(pars=c(3.0, 0.38)){
   mm <- KoalasV2$new()
   pp <- mm$.__enclos_env__$private$.obj$pars_natural
