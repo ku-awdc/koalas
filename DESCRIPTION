@@ -29,6 +29,7 @@ Imports:
   Rcpp,
   R6
 Suggests: 
+  tidyverse,
   neatpkg,
   knitr,
   rmarkdown,
