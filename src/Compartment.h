@@ -66,9 +66,12 @@ public:
   auto set_sum(double const value) noexcept(!CTS.debug)
     -> void
   {
+    // TOODO: switch to distribute balanced or all in first box
     for(auto& val : m_values){
-      val = value / static_cast<double>(s_ncomps);
+      // val = value / static_cast<double>(s_ncomps);
+      val = 0.0;
     }
+    m_values[0] = value;
   }
 
   /*
@@ -131,9 +134,7 @@ public:
     double const prop = 1.0 - std::exp(-rate * s_ncomps * d_time);
     double carry = 0.0;
     for(int i=0; i<s_ncomps; ++i){
-      if(i>0){
-        m_changes[i] += carry;
-      }
+      m_changes[i] += carry;
       carry = m_values[i] * prop;
       m_changes[i] -= carry;
     }

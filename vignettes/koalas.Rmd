@@ -120,18 +120,13 @@ You can also extract aggregated results in a format more suitable for plotting:
 model$results_long
 ```
 
-This is equivalent to:
+This produces the following (non-exclusive) combinations:
 
-```{r}
-library("tidyverse")
-
-model$results_wide |>
-  select(Year:Rf) |>
-  mutate(Year = Year + Day/365, Total = rowSums(across(-c(Year, Day)))) |>
-  mutate(Healthy=S+V+N+R, Infectious=I+If+Af+Cf, Diseased=Af+Cf, Infertile=Sf+Vf+Nf+Rf+If+Diseased, Immune=V+Vf+R+Rf) |>
-  select(Year, Total, Healthy:Immune) |>
-  pivot_longer(Total:Immune, names_to="Compartment", values_to="Koalas")
-```
+- Healthy = S+V+N+R
+- Infectious = I+If+Af+Cf
+- Diseased = Af+Cf
+- Infertile = Sf+Vf+Nf+Rf+I+Af+Cf
+- Immune = V+Vf+R+Rf+N+Nf
 
 
 ## Example 1: calibration
@@ -139,9 +134,6 @@ model$results_wide |>
 For simple calibration, we most likely want to disable interventions and examine the stable state of the population (over 20 years) given an 11% starting prevalence.  For example, changing beta to 1.75 (from 3.0) gives a prevalence of around 30% after 1 year:
 
 ```{r}
-library("tidyverse")
-theme_set(theme_light())
-
 model <- KoalasV2$new()
 
 prev <- 0.11
@@ -169,15 +161,17 @@ model$set_parameters(
   birthrate = 0.38,
   acute_duration = 0.4,
   lifespan_natural = 5,
-  lifespan_diseased = 1.946602,
+  lifespan_diseased = 4,
   relative_fecundity = 0.0,
   passive_intervention_rate = 0.0,
 )
 
 model$update(2*365)
 
+library("ggplot2")
+theme_set(theme_light())
+
 model$results_long |>
-  mutate(Percent = Koalas/Sum*100) |>
   ggplot(aes(x=Year, y=Percent, col=Compartment)) +
   geom_line() +
   geom_vline(xintercept=c(0,1), lty="dashed") +
@@ -222,7 +216,6 @@ model$set_state(
 )
 
 model$set_parameters(
-  beta = 1.75,
   passive_intervention_rate = 0
 )
 ```

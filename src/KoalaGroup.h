@@ -70,8 +70,8 @@ private:
     const noexcept(!CTS.debug)
     -> double
   {
-    if (rate == 0.0) return 0.0;
-    
+    if (rate == 0.0) return R_PosInf;
+
     double const duration = 1.0 / (rate * 365.0);
     return duration;
   }
@@ -79,8 +79,8 @@ private:
   [[nodiscard]] auto to_rate(double const duration) const noexcept(!CTS.debug)
     -> double
   {
-    if (duration == 0.0) return 0.0;
-    
+    if (Rcpp::traits::is_infinite<REALSXP>(duration)) return 0.0;
+
     double const rate = 1.0 / (duration * 365.0);
     return rate;
   }
@@ -211,9 +211,10 @@ private:
     double const nshd = m_tx_dest2 * testpos;
     double const back = m_tx_dest3 * testpos;
     m_sumVx += (cure + nshd + back);
-    double const remv = test - (cure + nshd + back);
+    double const remv = m_tx_dest4 * testpos; // testpos - (cure + nshd + back);
     m_sumRx += remv;
 
+    // TODO: squash small numbers for cure/nshd/back/remv/restart
 
     // Everything except (back+testneg) * (1-m_vx_bst) is removed from src:
     double const restart = (back+testneg) * m_vx_bst;
@@ -271,6 +272,12 @@ private:
     m_Nf.apply_changes();
     m_If.apply_changes();
     m_Rf.apply_changes();
+    
+    if constexpr (CTS.debug)
+    {
+      double const sum = get_fertile() + get_infertile();
+      if (std::abs(sum + m_Z) > 1e-7) Rcpp::stop("Internal book-keeping error");
+    }
   }
 
   [[nodiscard]] auto get_infected()
@@ -441,7 +448,7 @@ public:
       if(days <= 0) Rcpp::stop("Invalid days argument");
     }
     Rcpp::List rv(days);
-    
+
     int newdays = 0;
     while (newdays < days)
     {
@@ -455,7 +462,7 @@ public:
         // d_time is 1.0 as this happens once per day:
         update_passive(1.0);
 
-        m_time = 0.0;
+        m_time -= 1.0;
         m_day++;
         newdays++;
         if(m_day >= 366)
@@ -463,11 +470,11 @@ public:
           m_day = 1;
           m_year++;
         }
-        
+
         Rcpp::NumericVector state = get_state();
-        rv[newdays-1] = state;        
+        rv[newdays-1] = state;
       }
-      
+
       Rcpp::checkUserInterrupt();
     };
 

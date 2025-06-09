@@ -48,9 +48,9 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       private$.alpha <- c(V=num_V,I=num_I,N=num_N,R=num_R,A=num_A)
 
       ## Note: initialise with default parameters/state so they can be overridden later
-      if(all(private$.alpha==3L)){
+      if(all(private$.alpha==1L)){
         private$.obj <- new(KoalaGroupD1, private$.alpha, private$default_parameters(), private$default_state())
-      }else if(all(private$.alpha==1L)){
+      }else if(all(private$.alpha==3L)){
         private$.obj <- new(KoalaGroupD3, private$.alpha, private$default_parameters(), private$default_state())
       }else{
         ## TODO: enable
@@ -118,7 +118,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
       parameters <- private$.obj$parameters |> as.list()
 
-      dr <- "N1[0,)" # Note: durations of 0 mean a rate of 0!
+      dr <- "N1(0,]" # Note: durations of Inf mean a rate of 0!
       rt <- "N1[0,)"
       pb <- "N1[0,1]"
       zr <- "N1[0,0]"
@@ -303,7 +303,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         }
       }
 
-      qassert(proportion, "N1(0,1)")
+      qassert(proportion, "N1[0,1]")
 
       private$.obj$active_intervention(proportion)
       private$check_state()
@@ -335,14 +335,14 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(3.0,3), #4
+        beta = rep(1.75,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
         birthrate = rep(0.38,3), #8
         acute_duration = c(0.4, NA_real_, NA_real_), #9
         lifespan_natural = c(5.0, 3.0, 12.0), #10
-        lifespan_diseased = rep(0.25,3), #11 - 25% die before they reach C - i.e. relative to #9
+        lifespan_diseased = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated)
         relative_fecundity = c(0.0, 0.0, 0.1), #12 - ignoring males
 
         sensitivity = c(0.95, 0.90, 1.0),
@@ -361,15 +361,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       ## Relative to #1:
       pars[["vacc_redshed_duration"]] <- pars[["vacc_immune_duration"]] * pars[["vacc_redshed_duration"]]
       pars[["natural_immune_duration"]] <- pars[["vacc_immune_duration"]] * pars[["natural_immune_duration"]]
-
-      ## lifespan_diseased is calibrated so that a certain % die before moving on, so is relative to acute duration:
-      qassert(private$.alpha["A"], "X1(0,)")
-      deadline <- qgamma(0.99, private$.alpha["A"], rate=private$.alpha["A"]/pars[["acute_duration"]])
-      duration <- optimise(\(x){
-        abs(pars[["lifespan_diseased"]] - pgamma(deadline, private$.alpha["A"], rate=private$.alpha["A"]/x))
-      }, c(0, 100))$minimum
-      # curve(pgamma(x, 3, rate=3/duration), from=0, to=5); abline(v=deadline); abline(h=pars[["lifespan_diseased"]])
-      pars[["lifespan_diseased"]] <- duration
 
       ## Normalise treatment dest against sensitivity
       pars[["treatment_dest_IAC"]] <- 1 - pars[["sensitivity"]]
@@ -465,9 +456,11 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       model$results_wide |>
         select(.data$Year:.data$Rf) |>
         mutate(Year = .data$Year + .data$Day/365, Total = rowSums(across(-c(.data$Year, .data$Day))), Sum=Total) |>
-        mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf) |>
+        mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf+.data$N+.data$Nf) |>
         select(.data$Year, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
         pivot_longer(.data$Total:.data$Immune, names_to="Compartment", values_to="Koalas") |>
+        mutate(Percent = .data$Koalas / .data$Sum * 100) |>
+        select(-.data$Sum) |>
         mutate(Compartment = fct(.data$Compartment, levels=rev(c("Healthy","Immune","Infectious","Diseased","Infertile","Total"))))
     }
 

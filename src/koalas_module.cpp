@@ -21,7 +21,7 @@ RCPP_MODULE(koalas){
 
 	using namespace Rcpp;
 
-  using KoalaGroupD3 = KoalaGroup<debug, 3, 3, 3, 3, 3>;
+  using KoalaGroupD3 = KoalaGroup<debug, 3U, 3U, 3U, 3U, 3U>;
   class_<KoalaGroupD3>("KoalaGroupD3")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
@@ -34,7 +34,7 @@ RCPP_MODULE(koalas){
     .property("parameters", &KoalaGroupD3::get_pars, &KoalaGroupD3::set_pars, "Get and set parameters")
   ;
 
-  using KoalaGroupD1 = KoalaGroup<debug, 1, 1, 1, 1, 1>;
+  using KoalaGroupD1 = KoalaGroup<debug, 1U, 1U, 1U, 1U, 1U>;
   class_<KoalaGroupD1>("KoalaGroupD1")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
@@ -47,7 +47,7 @@ RCPP_MODULE(koalas){
     .property("parameters", &KoalaGroupD1::get_pars, &KoalaGroupD1::set_pars, "Get and set parameters")
   ;
 
-  using KoalaGroupD0 = KoalaGroup<debug, 0, 0, 0, 0, 0>;
+  using KoalaGroupD0 = KoalaGroup<debug, 0U, 0U, 0U, 0U, 0U>;
   class_<KoalaGroupD0>("KoalaGroupD0")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")

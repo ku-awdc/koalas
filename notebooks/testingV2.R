@@ -1,6 +1,124 @@
 library("tidyverse")
 library("koalas")
 
+## Test parameters
+
+## Vaccine immune duration
+mm <- KoalasV2$new(3)
+mm$set_state(
+  S = 0,
+  V = 100,
+  I = 100,
+  N = 0,
+  R = 0,
+  Af = 0,
+  Cf = 0
+)
+mm$set_parameters(
+  vacc_immune_duration = 1/12,
+  natural_immune_duration = Inf,
+  subcinical_duration = 1/12,
+  beta = 0,
+  passive_intervention_rate = 0,
+  subclinical_recover_proportion = 0.5,
+  lifespan_natural = Inf,
+  lifespan_diseased = Inf,
+  birthrate = 0
+)
+mm$update(365, 1/240)
+mm$results_wide |> tail()
+plot(0:365, mm$results_wide$V, type="l", col="blue")
+lines(0:365, (1-pgamma(0:365/365,3,3*12))*100, col="red")
+lines(0:365, (1-pexp(0:365/365,1*12))*100, col="green")
+
+
+KoalasV2$
+  new(3)$
+  set_state(
+    S = 0,
+    V = 0,
+    I = 0,
+    N = 0,
+    R = 0,
+    Af = 100,
+    Cf = 0
+  )$
+  set_parameters(
+    vacc_immune_duration = Inf,
+    natural_immune_duration = Inf,
+    subcinical_duration = Inf,
+    beta = 0,
+    passive_intervention_rate = 0,
+    subclinical_recover_proportion = 0.5,
+    lifespan_natural = Inf,
+    lifespan_disease = 4,
+    birthrate = 0,
+    sensitivity = 1,
+    specificity = 1,
+    vaccine_efficacy = 1,
+    vaccine_booster = 1,
+    treatment_dest_R = 0.45,
+    treatment_dest_N = 0.45,
+    treatment_dest_IAC = 0.1,
+    treatment_dest_remove = 0
+  )$
+  update(10000)$
+  results_wide |> tail()
+
+
+KoalasV2$
+  new(3)$
+  set_state(
+    S = 0,
+    V = 0,
+    I = 0,
+    N = 100,
+    R = 0,
+    Af = 0,
+    Cf = 0
+  )$
+  set_parameters(
+    vacc_immune_duration = Inf,
+    vacc_redshed_duration = Inf,
+    natural_immune_duration = Inf,
+    subcinical_duration = Inf,
+    beta = 0,
+    passive_intervention_rate = 0,
+    subclinical_recover_proportion = 0.5,
+    lifespan_natural = Inf,
+    lifespan_diseased = Inf,
+    birthrate = 0,
+    sensitivity = 0.95,
+    specificity = 0.99,
+    vaccine_efficacy = 1,
+    vaccine_booster = 1,
+    treatment_dest_R = 0.4,
+    treatment_dest_N = 0.3,
+    treatment_dest_IAC = 0.2,
+    treatment_dest_remove = 0.1
+  )$
+  update(1)$
+  active_intervention(proportion=1)$
+  update(1)$
+  active_intervention(proportion=1)$
+  update(1)$
+  results_wide |> tail()
+
+mm$parameters
+
+S1=S2 <- rep(100,1000)
+for(i in 2:1000){
+  S1[i] <- (1-1/365)*S1[i-1]
+  S2[i] <- exp(-1/365)*S2[i-1]
+}
+plot(S1,S2,type="l"); abline(0,1)
+cbind(S1,S2)
+
+plot(0:1000, mm$results_wide$V, type="l", col="blue")
+lines(0:1000, (1-pexp(0:1000/365,1))*100, col="red")
+lines(1:1000, S2, col="green")
+
+
 ## Compare to Grogan et al
 ## Duplicating Grogan et al
 
