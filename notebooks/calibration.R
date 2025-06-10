@@ -59,11 +59,11 @@ model$set_state(
   Cf = N * prev * 0.1
 )
 model$set_parameters(
-  beta = 2.2
+  beta = 2.25
 )
 model$update(400)
 model$results_long |>
-  ggplot(aes(x=Year, y=Percent, col=Compartment)) +
+  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
   geom_line() +
   geom_hline(yintercept=c(10,30), lty="dotted") +
   geom_vline(xintercept=1, lty="dashed")
@@ -78,17 +78,17 @@ model$set_state(
   I = N * prev
 )
 model$set_parameters(
-  beta = 2.2
+  beta = 2.25
 )
 model$update(400)
 dd <- 197
 model$results_long |>
-  ggplot(aes(x=Year, y=Percent, col=Compartment)) +
+  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
   geom_line() +
   geom_hline(yintercept=10, lty="dashed") +
   geom_vline(xintercept=dd/365, lty="dotted")
 model$results_long |>
-  ggplot(aes(x=Year, y=Koalas, col=Compartment)) +
+  ggplot(aes(x=Date, y=Koalas, col=Compartment)) +
   geom_line() +
   geom_hline(yintercept=300, lty="dashed") +
   geom_vline(xintercept=dd/365, lty="dotted")

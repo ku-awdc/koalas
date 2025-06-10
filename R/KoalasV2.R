@@ -15,7 +15,7 @@ mlist <- IPDMR:::mlist
 #' @import tidyr
 #' @importFrom methods new
 #' @importFrom rlang .data
-#' @importFrom checkmate qassert assert_number
+#' @importFrom checkmate qassert assert_number assert_date
 #' @importFrom purrr list_simplify
 #' @importFrom forcats fct
 #'
@@ -35,9 +35,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param num_A number of sub-components for Af
     #' @param state an initialisation state list - see the set_state method for the allowed values
     #' @param parameters a list of parameter values - see the set_parameters method for the allowed values
+    #' @param start_date the date corresponding to day 0 of the simulation (only used for outputs)
     #'
     #' @return A new within-group model object
-    initialize = function(start_date = "2022-01-01", num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list()){
+    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list(), start_date = "2022-01-01"){
 
       qassert(num_V, "X1(0,)")
       qassert(num_I, "X1(0,)")
@@ -46,6 +47,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(num_A, "X1(0,)")
 
       private$.alpha <- c(V=num_V,I=num_I,N=num_N,R=num_R,A=num_A)
+
+      if(is.character(start_date) || is.POSIXct(start_date)) start_date <- as.Date(start_date)
+      assert_date(start_date, any.missing=FALSE, len=1L)
+      private$.start_date <- start_date
 
       ## Note: initialise with default parameters/state so they can be overridden later
       if(all(private$.alpha==1L)){
@@ -267,9 +272,13 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(n_days, "X1(0,)")
       qassert(d_time, "N1(0,)")
       qassert(record, "B1")
+      if(!record && length(private$.allres)>0L){
+        stop("Unable to stop recording - it has already started!")
+      }
+
       private$check_state()
 
-      private$.obj$update(n_days, d_time) |>
+      private$.obj$update(n_days, d_time, record) |>
         lapply(as.list) |>
         lapply(as_tibble) |>
         bind_rows() ->
@@ -284,21 +293,11 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @description
     #' Implement a (one-time) active sampling/capture/testing of all animals
     #'
-    #' @param number the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)
     #' @param proportion the proportion of animals to test/treat/vaccinate
     #' @param cull_positive the proportion of test-positive animals that will be culled
     #' @param cull_acute the proportion of acute diseased animals that will be culled
     #' @param cull_chronic the proportion of chronic diseased animals that will be culled
-    active_intervention = function(number, proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3){
-
-      if(missing(proportion)){
-        qassert(number, "N1(0,]")
-        proportion <- number / self$N
-        if(proportion>1){
-          warning("Requested more vaccinations than available animals")
-          proportion <- 1
-        }
-      }
+    active_intervention = function(proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3){
 
       qassert(proportion, "N1[0,1]")
       qassert(cull_positive, "N1[0,1]")
@@ -307,6 +306,85 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
       private$.obj$active_intervention(proportion, cull_positive, cull_acute, cull_chronic)
       private$check_state()
+
+      private$.interventions <- bind_rows(
+        private$.interventions,
+        tibble(
+          Date = self$date,
+          SampleProportion = proportion,
+          CullPositive = cull_positive,
+          CullInfected = cull_acute,
+          CullAcute = cull_chronic
+        ))
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Set and burn-in the model for standard scenarios (with current parameters)
+    #' @param d_time the desired time step (delta time)
+    #' @return self, invisibly
+    burnin = function(d_time=1/24){
+
+      stopifnot(self$day == 0L)
+
+      prev <- 0.05
+      N <- 272
+      days <- 197
+
+      state <- do.call(self$set_state, args=private$default_state() |> as.list())
+      self$set_state(S=N*(1-prev), I=N*prev)
+
+      private$.start_date <- as.Date("2022-07-01") - days
+
+      ## Do the burnin:
+      self$update(n_days = days, d_time=d_time, record=FALSE)
+
+      ## Then get us to 1st October 2025:
+      newdays <- as.numeric(as.Date("2025-10-01") - self$date, units="days")
+      self$update(n_days = newdays, d_time=d_time, record=TRUE)
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Run the model for 1 or more years with the standard scenarios
+    #' @param years the number of years to run for
+    #' @param sampling_frequency the number of sampling events per year
+    #' @param proportion the proportion of animals to test/treat/vaccinate at each intervention
+    #' @param cull_positive the proportion of test-positive animals that will be culled
+    #' @param cull_acute the proportion of acute diseased animals that will be culled
+    #' @param cull_chronic the proportion of chronic diseased animals that will be culled
+    #' @param d_time the desired time step (delta time)
+    #' @return self, invisibly
+    run = function(years, sampling_frequency, proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3, d_time=1/24){
+
+      qassert(years, "X1(0,)")
+      qassert(sampling_frequency, "X1[0,)")
+
+      for(y in seq_len(years)){
+
+        str_c(
+          as.numeric(strftime(self$date, format="%Y"))+1,
+          "-",
+          strftime(self$date, format="%m-%d")
+        ) |>
+          as.Date() ->
+          tdt
+        diy <- as.numeric(tdt - self$date, units="days")
+
+        if(sampling_frequency == 0L){
+          self$update(diy, d_time=d_time)
+        }else{
+          intvl <- floor(diy / sampling_frequency)
+          for(s in seq_len(sampling_frequency-1L)){
+            self$active_intervention(proportion=proportion, cull_positive = cull_positive, cull_acute = cull_acute, cull_chronic = cull_chronic)
+            self$update(intvl, d_time=d_time)
+          }
+          self$active_intervention(proportion=proportion, cull_positive = cull_positive, cull_acute = cull_acute, cull_chronic = cull_chronic)
+          self$update(diy - (intvl*(sampling_frequency-1L)), d_time=d_time)
+        }
+      }
 
       invisible(self)
     },
@@ -328,14 +406,22 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     ## Private fields:
     .obj = NULL,
     .alpha = rep(NA_integer_, 5L),
+    .start_date = as.Date(NA_character_),
     .allres = list(),
+    .interventions = tibble(
+      Date = as.Date(character(0L)),
+      SampleProportion = numeric(0L),
+      CullPositive = numeric(0L),
+      CullInfected = numeric(0L),
+      CullAcute = numeric(0L)
+    ),
 
     default_parameters = function(){
       list(
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.2,3), #4
+        beta = rep(2.25,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
@@ -389,7 +475,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         If = 0.0,
         Nf = 0.0,
         Rf = 0.0,
-        Z = -N,
         SumTx = 0.0,
         SumVx = 0.0,
         SumRx = 0.0,
@@ -409,9 +494,14 @@ KoalasV2 <- R6::R6Class("KoalasV2",
   ## Active binding functions:
   active = mlist(
 
+    #' @field date the current date of the model (read-only)
+    date = function(){
+      private$.start_date + self$day
+    },
+
     #' @field day the current day number of the model (read-only)
     day = function(){
-      private$.obj$vitals[1]
+      private$.obj$vitals[1] |> as.numeric()
     },
 
     #' @field N the total number of animals alive (read-only)
@@ -441,20 +531,38 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       if(length(private$.allres)==0L) stop("Model has not been updated")
       private$.allres |>
         bind_rows() |>
-        select(.data$Day, everything())
+        mutate(Date = private$.start_date + .data$Day) |>
+        select(.data$Date, .data$Day, everything())
     },
 
     #' @field results_long a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)
     results_long = function(){
-      model$results_wide |>
-        select(.data$Day:.data$Rf) |>
-        mutate(Year = .data$Day/365, Total = rowSums(across(-c(.data$Year, .data$Day))), Sum=Total) |>
+      self$results_wide |>
+        select(.data$Date:.data$Rf) |>
+        mutate(Total = rowSums(across(-c(.data$Date, .data$Day))), Sum=Total) |>
         mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf+.data$N+.data$Nf) |>
-        select(.data$Year, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
+        select(.data$Date, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
         pivot_longer(.data$Total:.data$Immune, names_to="Compartment", values_to="Koalas") |>
         mutate(Percent = .data$Koalas / .data$Sum * 100) |>
         select(-.data$Sum) |>
         mutate(Compartment = fct(.data$Compartment, levels=rev(c("Healthy","Immune","Infectious","Diseased","Infertile","Total"))))
+    },
+
+    #' @field interventions a data frame of intervention time points from the model (read-only)
+    interventions = function(){
+      private$.interventions
+    },
+
+    #' @field treatments a data frame of cumulative treatments and vaccinations from the model (read-only)
+    treatments = function(){
+      self$results_wide |>
+        select(.data$Date, .data$SumTx, .data$SumVx) |>
+        pivot_longer(-.data$Date, names_to="Type", values_to="Cumulative") |>
+        mutate(Type = case_match(.data$Type,
+          "SumTx" ~ "Treated",
+          "SumVx" ~ "Vaccinated"
+        )) |>
+        mutate(Type = fct(.data$Type, levels=c("Treated","Vaccinated")))
     }
 
   )

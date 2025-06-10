@@ -68,6 +68,7 @@ private:
   static constexpr double const s_passive_cull_acute = 0.2;
   static constexpr double const s_passive_cull_chronic = 0.3;
 
+  bool m_recording = false;
 
   KoalaGroup() = delete;
 
@@ -272,7 +273,7 @@ private:
 
     // Final checks:
     if constexpr (CTS.debug)
-    {      
+    {
       if(std::abs(prop - (to_vacc+to_cull+to_frel+to_nshed+to_cure)) > CTS.tol){
         Rcpp::Rcout << prop << " != " << to_vacc << " + " << to_cull << " + " << to_frel << " + " << to_nshed << " + " << to_cure << "\n";
         Rcpp::stop("Logic error in treat_vacc_inf");
@@ -357,7 +358,7 @@ private:
     double const infertile = m_Af + m_Cf + m_Sf + m_Vf + m_If + m_Nf + m_Rf;
     return infertile;
   }
-  
+
   auto check_state()
     const noexcept(!CTS.debug)
     -> void
@@ -378,7 +379,7 @@ private:
       if(m_If.get_sum() < 0.0) Rcpp::stop("Negative value in If");
       if(m_Nf.get_sum() < 0.0) Rcpp::stop("Negative value in Nf");
       if(m_Rf.get_sum() < 0.0) Rcpp::stop("Negative value in Rf");
-      
+
       double const N = get_fertile() + get_infertile();
       if(std::abs(N + m_Z) > CTS.tol){
         Rcpp::Rcout << -m_Z << " != " << get_fertile() << " + " << get_infertile() << "\n";
@@ -386,7 +387,7 @@ private:
       }
     }
   }
-    
+
 
 public:
   KoalaGroup(Rcpp::IntegerVector ncomps, Rcpp::NumericVector const parameters, Rcpp::NumericVector const state) noexcept(!CTS.debug)
@@ -497,7 +498,7 @@ public:
 
     m_Z = -(m_S+m_V+m_I+m_N+m_R+m_Af+m_Cf+m_Vf+m_If+m_Nf+m_Rf);
     check_state();
-    
+
   }
 
   [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
@@ -536,25 +537,33 @@ public:
     update_apply();
   }
 
-  auto update(int const days, double const d_time) noexcept(!CTS.debug)
+  auto update(int const days, double const d_time, bool const record) noexcept(!CTS.debug)
     -> Rcpp::List
   {
     if constexpr (CTS.debug)
     {
       if(days <= 0) Rcpp::stop("Invalid days argument");
+      if(m_recording && !record) Rcpp::stop("Can't stop recording when already started!");
     }
-    
-    int const len = (m_day==0 ? days+1 : days);
+
+    int const len = (m_recording ? days : days+1);
     // Rcpp::Rcout << "Updating for " << days << " days (" << len << " rows)\n";
     Rcpp::List rv(len);
-    
+
     int ii = 0;
-    if(m_day==0){
+    if(!m_recording){
       Rcpp::NumericVector state = get_state();
       rv[ii] = state;
       ii++;
+      
+      // Reset cumulative counters:
+      m_sumTx = 0.0;
+      m_sumVx = 0.0;
+      m_sumRx = 0.0;
+      m_sumMx = 0.0;
     }
-    
+    m_recording = record;
+
     check_state();
 
     int newdays = 0;
@@ -575,19 +584,19 @@ public:
         newdays++;
 
         Rcpp::NumericVector state = get_state();
-        
+
         if constexpr (CTS.debug){
           if(ii >= rv.size()) Rcpp::stop("Logic error in update");
         }
-        
+
         rv[ii] = state;
-        ii++;        
+        ii++;
       }
 
       check_state();
       Rcpp::checkUserInterrupt();
     };
-    
+
     check_state();
 
     return rv;
@@ -595,9 +604,9 @@ public:
 
   auto get_vitals() const noexcept(!CTS.debug)
     -> Rcpp::NumericVector
-  {    
+  {
     check_state();
-    
+
     using namespace Rcpp;
     NumericVector rv = NumericVector::create(
       _["Day"] = static_cast<double>(m_day),

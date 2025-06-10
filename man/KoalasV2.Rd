@@ -9,6 +9,8 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
+\item{\code{date}}{the current date of the model (read-only)}
+
 \item{\code{day}}{the current day number of the model (read-only)}
 
 \item{\code{N}}{the total number of animals alive (read-only)}
@@ -20,6 +22,10 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \item{\code{results_wide}}{a data frame of results from the model in wide format (read-only)}
 
 \item{\code{results_long}}{a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)}
+
+\item{\code{interventions}}{a data frame of intervention time points from the model (read-only)}
+
+\item{\code{treatments}}{a data frame of cumulative treatments and vaccinations from the model (read-only)}
 }
 \if{html}{\out{</div>}}
 }
@@ -31,6 +37,8 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \item \href{#method-KoalasV2-set_state}{\code{KoalasV2$set_state()}}
 \item \href{#method-KoalasV2-update}{\code{KoalasV2$update()}}
 \item \href{#method-KoalasV2-active_intervention}{\code{KoalasV2$active_intervention()}}
+\item \href{#method-KoalasV2-burnin}{\code{KoalasV2$burnin()}}
+\item \href{#method-KoalasV2-run}{\code{KoalasV2$run()}}
 \item \href{#method-KoalasV2-print}{\code{KoalasV2$print()}}
 \item \href{#method-KoalasV2-clone}{\code{KoalasV2$clone()}}
 }
@@ -42,7 +50,6 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 Create a new single-group koala model
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{KoalasV2$new(
-  start_date = "2022-01-01",
   num = 3L,
   num_V = num,
   num_I = num,
@@ -50,7 +57,8 @@ Create a new single-group koala model
   num_R = num,
   num_A = num,
   parameters = list(),
-  state = list()
+  state = list(),
+  start_date = "2022-01-01"
 )}\if{html}{\out{</div>}}
 }
 
@@ -72,6 +80,8 @@ Create a new single-group koala model
 \item{\code{parameters}}{a list of parameter values - see the set_parameters method for the allowed values}
 
 \item{\code{state}}{an initialisation state list - see the set_state method for the allowed values}
+
+\item{\code{start_date}}{the date corresponding to day 0 of the simulation (only used for outputs)}
 }
 \if{html}{\out{</div>}}
 }
@@ -265,7 +275,6 @@ self, invisibly
 Implement a (one-time) active sampling/capture/testing of all animals
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{KoalasV2$active_intervention(
-  number,
   proportion,
   cull_positive = 0,
   cull_acute = 0.2,
@@ -276,8 +285,6 @@ Implement a (one-time) active sampling/capture/testing of all animals
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{number}}{the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)}
-
 \item{\code{proportion}}{the proportion of animals to test/treat/vaccinate}
 
 \item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
@@ -287,6 +294,66 @@ Implement a (one-time) active sampling/capture/testing of all animals
 \item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasV2-burnin"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV2-burnin}{}}}
+\subsection{Method \code{burnin()}}{
+Set and burn-in the model for standard scenarios (with current parameters)
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$burnin(d_time = 1/24)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{d_time}}{the desired time step (delta time)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+self, invisibly
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasV2-run"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV2-run}{}}}
+\subsection{Method \code{run()}}{
+Run the model for 1 or more years with the standard scenarios
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(
+  years,
+  sampling_frequency,
+  proportion,
+  cull_positive = 0,
+  cull_acute = 0.2,
+  cull_chronic = 0.3,
+  d_time = 1/24
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{years}}{the number of years to run for}
+
+\item{\code{sampling_frequency}}{the number of sampling events per year}
+
+\item{\code{proportion}}{the proportion of animals to test/treat/vaccinate at each intervention}
+
+\item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
+
+\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
+
+\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
+
+\item{\code{d_time}}{the desired time step (delta time)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+self, invisibly
 }
 }
 \if{html}{\out{<hr>}}

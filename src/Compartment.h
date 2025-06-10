@@ -54,7 +54,7 @@ public:
       m_changes[i] = 0.0;
       
       // Zap occasional small negative values (no adjustment to m_Z, so it can't happen too often):
-      if(m_values[i] < 0.0 & std::abs(m_values[i]) < CTS.tol){        
+      if(m_values[i] < 0.0 && std::abs(m_values[i]) < CTS.tol){        
         m_values[i] = 0.0;
       }
       
