@@ -35,7 +35,6 @@ private:
   double m_sumRx = 0.0;
   double m_sumMx = 0.0;
 
-  int m_year = 0;
   int m_day = 0;
   double m_time = 0.0;
 
@@ -49,19 +48,25 @@ private:
   double m_birthrate = 0.0;     // #8
   double m_ac_rate = 0.0;       // #9
   double m_mort_nat = 0.0;      // #10
-  double m_mort_dis = 0.0;      // #11
+  double m_mort_acute = 0.0;    // #11
+  double m_mort_chronic = 0.0;  // #11
   double m_rel_fecundity = 0.0; // #12
 
   double m_se = 1.0;
   double m_sp = 1.0;
   // Destinations: (1) R, (2) N, (3) A/C/I, (4) Z
-  double m_tx_dest1 = 0.33;
-  double m_tx_dest2 = 0.33;
-  double m_tx_dest3 = 0.01;
-  double m_tx_dest4 = 0.33;
+  double m_cure_N = 0.9;
+  double m_cure_I = 0.9;
+  double m_cure_A = 0.75;
+  double m_cure_C = 0.6;
   double m_vx_eff = 1.0;
   double m_vx_bst = 1.0;
   double m_passive_rate = 0.0;
+
+  // Assume that passive cull rates are fixed and hard-coded for ease:
+  static constexpr double const s_passive_cull_positive = 0.0;
+  static constexpr double const s_passive_cull_acute = 0.2;
+  static constexpr double const s_passive_cull_chronic = 0.3;
 
 
   KoalaGroup() = delete;
@@ -93,15 +98,14 @@ private:
     m_Z += m_I.take_rate(m_mort_nat, d_time);
     m_Z += m_N.take_rate(m_mort_nat, d_time);
     m_Z += m_R.take_rate(m_mort_nat, d_time);
-    m_Z += m_Cf.take_rate(m_mort_nat, d_time);
     m_Z += m_Sf.take_rate(m_mort_nat, d_time);
     m_Z += m_Vf.take_rate(m_mort_nat, d_time);
     m_Z += m_If.take_rate(m_mort_nat, d_time);
     m_Z += m_Nf.take_rate(m_mort_nat, d_time);
     m_Z += m_Rf.take_rate(m_mort_nat, d_time);
 
-    // Mortality for Af is different:
-    double const dmort = m_Af.take_rate(m_mort_dis, d_time);
+    // Mortality for Af and Cf is different:
+    double const dmort = m_Af.take_rate(m_mort_acute, d_time) + m_Cf.take_rate(m_mort_chronic, d_time);
     m_sumMx += dmort;
     m_Z += dmort;
 
@@ -168,89 +172,143 @@ private:
     update_apply();
   }
 
-  auto update_passive(double const d_time) noexcept(!CTS.debug)
+  auto update_passive(double const d_time)
+    noexcept(!CTS.debug)
     -> void
   {
     if (m_passive_rate > 0.0 )
     {
       double const prop = 1.0 - std::exp(-m_passive_rate * d_time);
-      treat_vacc_all(prop);
+      treat_vacc_all(prop, s_passive_cull_positive, s_passive_cull_acute, s_passive_cull_chronic);
 
       update_apply();
     }
   }
 
   template <typename SrcT, typename DstT>
-  auto treat_vacc_noninf(SrcT& src, DstT& dst, double const prop) noexcept(!CTS.debug)
+  auto treat_vacc_noninf(SrcT& src, DstT& dst, double const prop, double const efficacy) noexcept(!CTS.debug)
     -> void
   {
     double const test = src.get_sum() * prop;
 
-    // Test positives are also treated but there is no other difference:
+    // Test positives are treated+vaccinated rather than just vaccinated, but there is no other difference:
     m_sumTx += (1.0 - m_sp) * test;
-    m_sumVx += test;
+    m_sumVx += m_sp * test;
 
-    // Move to V(f):
-    dst.insert_value_start( src.take_prop(m_vx_eff * prop) );
+    // Move to or restart in V(f) or R(f):
+    dst.insert_value_start( src.take_prop(efficacy * prop) );
   }
 
-  enum class Shedding { negative, positive };
+  enum class Status { nonshedding, subclinical, diseased };
 
-  template <Shedding s_shed, typename SrcT, typename DstT1, typename DstT2>
-  auto treat_vacc_inf(SrcT& src, DstT1& dst1, DstT2& dst2, double const prop) noexcept(!CTS.debug)
+  template <Status s_status, typename Src, typename DstF, typename DstN, typename DstR>
+  auto treat_vacc_inf(Src& src, DstF& dstF, DstN& dstN, DstR& dstR,
+                      double const prop, double const cull_prob,
+                      double const cure_prob) noexcept(!CTS.debug)
     -> void
   {
-    double const test = src.get_sum() * prop;
+    double const n_sampled = src.get_sum() * prop;
 
-    // Test positives are treated and have a chance to be cured:
-    double const testpos = test * ((s_shed==Shedding::negative) ? (1.0-m_sp) : m_se);
-    double const testneg = test - testpos;
-    m_sumTx += testpos;
+    double progressed = prop;
 
-    double const cure = m_tx_dest1 * testpos;
-    double const nshd = m_tx_dest2 * testpos;
-    double const back = m_tx_dest3 * testpos;
-    m_sumVx += (cure + nshd + back);
-    double const remv = m_tx_dest4 * testpos; // testpos - (cure + nshd + back);
-    m_sumRx += remv;
+    // First round of testing - perfect for Af/Cf, se for I/If, 1-sp for N/Nf:
+    double const testpos = (s_status==Status::diseased ? 1.0 : (s_status==Status::subclinical ? m_se : (1.0-m_sp)));
+    // All animals that are test negative are vaccinated, but this only affects non-shedding:
+    double const to_vacc = progressed * (1.0-testpos);
+    m_sumVx += (n_sampled * to_vacc);
+    if constexpr (s_status==Status::nonshedding)
+    {
+      dstN.insert_value_start(src.take_prop(m_vx_bst * to_vacc));
+    }
 
-    // TODO: squash small numbers for cure/nshd/back/remv/restart
+    progressed *= testpos;
 
-    // Everything except (back+testneg) * (1-m_vx_bst) is removed from src:
-    double const restart = (back+testneg) * m_vx_bst;
-    src.remove_number( cure+nshd+remv+restart );
+    // A proportion of test-positive animals are culled:
+    double const to_cull = progressed * cull_prob;
+    {
+      double const n_culled = src.take_prop(to_cull);
+      m_Z += n_culled;
+      m_sumRx += n_culled;
+    }
 
-    // Go back to the src category N(f) or R(f) but with fresh vaccination:
-    src.insert_value_start(restart);
-    // Destinations: (1) R, (2) N, (3) A/C/I, (4) Z
-    dst1.insert_value_start(cure);
-    dst2.insert_value_start(nshd);
-    // Dest 3 is not taken out to start with
-    m_Z += remv;
+    progressed *= (1.0 - cull_prob);
+
+    // All animals remaining end up being treated:
+    m_sumTx += (n_sampled * progressed);
+
+    // Most have a complete treatment course but some are released early due to a false negative:
+    double const treat_complete = (s_status==Status::nonshedding ? 1.0 : m_se); // Note: deliberately not 1-sp here for N!!!
+    double const to_frel = progressed * (1.0-treat_complete);
+    if constexpr (s_status==Status::diseased)
+    {
+      // Move diseased to start of I (failed treatment, but no longer clinically diseased)
+      dstF.insert_value_start(src.take_prop(to_frel));
+    }
+    else if constexpr (s_status==Status::subclinical)
+    {
+      // Do nothing - don't restart animals in I
+    }
+    else if constexpr (s_status==Status::nonshedding)
+    {
+      // Restart non-shedding due to vaccine (this will have no effect as test sensitivity above is 1)
+      dstN.insert_value_start(src.take_prop(m_vx_bst * to_frel));
+    }
+
+    progressed *= treat_complete;
+
+    // Of the complete treatment number, a proportion recover and the rest are non-sheding:
+    double const to_nshed = progressed * (1.0 - cure_prob);
+    if constexpr (s_status==Status::nonshedding) {
+      // For N, restart due to vaccine:
+      dstN.insert_value_start(src.take_prop(m_vx_bst * to_nshed));
+    }else{
+      // Otherwise all move to start of N:
+      dstN.insert_value_start(src.take_prop(to_nshed));
+    }
+
+    // All cured animals go to start of R:
+    double const to_cure = progressed * cure_prob;
+    dstR.insert_value_start(src.take_prop(to_cure));
+
+    // Final checks:
+    if constexpr (CTS.debug)
+    {      
+      if(std::abs(prop - (to_vacc+to_cull+to_frel+to_nshed+to_cure)) > CTS.tol){
+        Rcpp::Rcout << prop << " != " << to_vacc << " + " << to_cull << " + " << to_frel << " + " << to_nshed << " + " << to_cure << "\n";
+        Rcpp::stop("Logic error in treat_vacc_inf");
+      }
+    }
+
   }
 
-  auto treat_vacc_all(double const prop) noexcept(!CTS.debug)
+  auto treat_vacc_all(double const prop, double const cull_positive,
+                      double const cull_acute, double const cull_chronic)
+    noexcept(!CTS.debug)
     -> void
   {
     // Susceptible:
-    treat_vacc_noninf(m_S, m_V, prop);
-    treat_vacc_noninf(m_Sf, m_Vf, prop);
+    treat_vacc_noninf(m_S, m_V, prop, m_vx_eff);
+    treat_vacc_noninf(m_Sf, m_Vf, prop, m_vx_eff);
 
     // Already vaccinated:
-    treat_vacc_noninf(m_V, m_V, prop);
-    treat_vacc_noninf(m_Vf, m_Vf, prop);
+    treat_vacc_noninf(m_V, m_V, prop, m_vx_bst);
+    treat_vacc_noninf(m_Vf, m_Vf, prop, m_vx_bst);
+
+    // Already recovered:
+    treat_vacc_noninf(m_R, m_R, prop, m_vx_bst);
+    treat_vacc_noninf(m_Rf, m_Rf, prop, m_vx_bst);
 
     // Non-shedding:
-    treat_vacc_inf<Shedding::negative>(m_N, m_R, m_N, prop);
-    treat_vacc_inf<Shedding::negative>(m_Nf, m_Rf, m_Nf, prop);
+    treat_vacc_inf<Status::nonshedding>(m_N, m_N, m_N, m_R, prop, cull_positive, m_cure_N);
+    treat_vacc_inf<Status::nonshedding>(m_Nf, m_Nf, m_Nf, m_Rf, prop, cull_positive, m_cure_N);
 
     // Infectious:
-    treat_vacc_inf<Shedding::positive>(m_I, m_R, m_N, prop);
-    treat_vacc_inf<Shedding::positive>(m_If, m_Rf, m_Nf, prop);
+    treat_vacc_inf<Status::subclinical>(m_I, m_I, m_N, m_R, prop, cull_positive, m_cure_I);
+    treat_vacc_inf<Status::subclinical>(m_If, m_If, m_Nf, m_Rf, prop, cull_positive, m_cure_I);
 
     // Diseased:
-    treat_vacc_inf<Shedding::positive>(m_Af, m_Rf, m_Nf, prop);
-    treat_vacc_inf<Shedding::positive>(m_Cf, m_Rf, m_Nf, prop);
+    treat_vacc_inf<Status::diseased>(m_Af, m_If, m_Nf, m_Rf, prop, cull_acute, m_cure_A);
+    treat_vacc_inf<Status::diseased>(m_Cf, m_If, m_Nf, m_Rf, prop, cull_chronic, m_cure_C);
 
     update_apply();
   }
@@ -272,12 +330,8 @@ private:
     m_Nf.apply_changes();
     m_If.apply_changes();
     m_Rf.apply_changes();
-    
-    if constexpr (CTS.debug)
-    {
-      double const sum = get_fertile() + get_infertile();
-      if (std::abs(sum + m_Z) > 1e-7) Rcpp::stop("Internal book-keeping error");
-    }
+
+    check_state();
   }
 
   [[nodiscard]] auto get_infected()
@@ -303,6 +357,36 @@ private:
     double const infertile = m_Af + m_Cf + m_Sf + m_Vf + m_If + m_Nf + m_Rf;
     return infertile;
   }
+  
+  auto check_state()
+    const noexcept(!CTS.debug)
+    -> void
+  {
+    if constexpr (CTS.debug)
+    {
+      if(m_S.get_sum() < 0.0) Rcpp::stop("Negative value in S");
+      if(m_V.get_sum() < 0.0) Rcpp::stop("Negative value in V");
+      if(m_I.get_sum() < 0.0) Rcpp::stop("Negative value in I");
+      if(m_N.get_sum() < 0.0) Rcpp::stop("Negative value in N");
+      if(m_R.get_sum() < 0.0) Rcpp::stop("Negative value in R");
+
+      if(m_Af.get_sum() < 0.0) Rcpp::stop("Negative value in Af");
+      if(m_Cf.get_sum() < 0.0) Rcpp::stop("Negative value in Cf");
+
+      if(m_Sf.get_sum() < 0.0) Rcpp::stop("Negative value in Sf");
+      if(m_Vf.get_sum() < 0.0) Rcpp::stop("Negative value in Vf");
+      if(m_If.get_sum() < 0.0) Rcpp::stop("Negative value in If");
+      if(m_Nf.get_sum() < 0.0) Rcpp::stop("Negative value in Nf");
+      if(m_Rf.get_sum() < 0.0) Rcpp::stop("Negative value in Rf");
+      
+      double const N = get_fertile() + get_infertile();
+      if(std::abs(N + m_Z) > CTS.tol){
+        Rcpp::Rcout << -m_Z << " != " << get_fertile() << " + " << get_infertile() << "\n";
+        Rcpp::stop("-Z != Fertile + Infertile");
+      }
+    }
+  }
+    
 
 public:
   KoalaGroup(Rcpp::IntegerVector ncomps, Rcpp::NumericVector const parameters, Rcpp::NumericVector const state) noexcept(!CTS.debug)
@@ -327,15 +411,16 @@ public:
     m_birthrate = parameters["birthrate"]/365.0;                 // #8
     m_ac_rate = to_rate(parameters["acute_duration"]);           // #9
     m_mort_nat = to_rate(parameters["lifespan_natural"]);        // #10
-    m_mort_dis = to_rate(parameters["lifespan_diseased"]);       // #11
+    m_mort_acute = to_rate(parameters["lifespan_acute"]);        // #11
+    m_mort_chronic = to_rate(parameters["lifespan_chronic"]);    // #11
     m_rel_fecundity = parameters["relative_fecundity"];          // #12
 
     m_se = parameters["sensitivity"];
     m_sp = parameters["specificity"];
-    m_tx_dest1 = parameters["treatment_dest_R"];
-    m_tx_dest2 = parameters["treatment_dest_N"];
-    m_tx_dest3 = parameters["treatment_dest_IAC"];
-    m_tx_dest4 = parameters["treatment_dest_remove"];
+    m_cure_N = parameters["cure_prob_N"];
+    m_cure_I = parameters["cure_prob_I"];
+    m_cure_A = parameters["cure_prob_A"];
+    m_cure_C = parameters["cure_prob_C"];
     m_vx_eff = parameters["vaccine_efficacy"];
     m_vx_bst = parameters["vaccine_booster"];
     m_passive_rate = parameters["passive_intervention_rate"] / 365.0;
@@ -358,18 +443,27 @@ public:
       _["birthrate"] = m_birthrate*365.0,                     // #8
       _["acute_duration"] = to_duration(m_ac_rate),           // #9
       _["lifespan_natural"] = to_duration(m_mort_nat),        // #10
-      _["lifespan_diseased"] = to_duration(m_mort_dis),       // #11
+      _["lifespan_acute"] = to_duration(m_mort_acute),        // #11
+      _["lifespan_chronic"] = to_duration(m_mort_chronic),    // #11
       _["relative_fecundity"] = m_rel_fecundity,              // #12
 
       _["sensitivity"] = m_se,
       _["specificity"] = m_sp,
-      _["treatment_dest_R"] = m_tx_dest1,
-      _["treatment_dest_N"] = m_tx_dest2,
-      _["treatment_dest_IAC"] = m_tx_dest3,
-      _["treatment_dest_remove"] = m_tx_dest4,
-      _["vaccine_efficacy"] = m_vx_eff,
-      _["vaccine_booster"] = m_vx_bst
+      _["cure_prob_N"] = m_cure_N,
+      _["cure_prob_I"] = m_cure_I,
+      _["cure_prob_A"] = m_cure_A,
+      _["cure_prob_C"] = m_cure_C
     ); // Max number of elements is 20
+
+    pars.push_back(
+      m_vx_eff,
+      "vaccine_efficacy"
+    );
+
+    pars.push_back(
+      m_vx_bst,
+      "vaccine_booster"
+    );
 
     pars.push_back(
       m_passive_rate*365.0,  // 1.0 - std::exp(-m_passive_rate * 365.0),
@@ -395,7 +489,6 @@ public:
     m_Nf.set_sum(state["Nf"]);
     m_Rf.set_sum(state["Rf"]);
 
-    m_year = static_cast<int>(state["Year"]);
     m_day = static_cast<int>(state["Day"]);
     m_sumTx = state["SumTx"];
     m_sumVx = state["SumVx"];
@@ -403,6 +496,8 @@ public:
     m_sumMx = state["SumMx"];
 
     m_Z = -(m_S+m_V+m_I+m_N+m_R+m_Af+m_Cf+m_Vf+m_If+m_Nf+m_Rf);
+    check_state();
+    
   }
 
   [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
@@ -410,7 +505,6 @@ public:
   {
     using namespace Rcpp;
     NumericVector rv = NumericVector::create(
-      _["Year"] = static_cast<double>(m_year),
       _["Day"] = static_cast<double>(m_day),
       _["S"] = m_S.get_sum(),
       _["V"] = m_V.get_sum(),
@@ -433,10 +527,12 @@ public:
     return rv;
   }
 
-  auto active_intervention(double const prop) noexcept(!CTS.debug)
+  auto active_intervention(double const prop, double const cull_positive,
+                            double const cull_acute, double const cull_chronic)
+    noexcept(!CTS.debug)
     -> void
   {
-    treat_vacc_all(prop);
+    treat_vacc_all(prop, cull_positive, cull_acute, cull_chronic);
     update_apply();
   }
 
@@ -447,7 +543,19 @@ public:
     {
       if(days <= 0) Rcpp::stop("Invalid days argument");
     }
-    Rcpp::List rv(days);
+    
+    int const len = (m_day==0 ? days+1 : days);
+    // Rcpp::Rcout << "Updating for " << days << " days (" << len << " rows)\n";
+    Rcpp::List rv(len);
+    
+    int ii = 0;
+    if(m_day==0){
+      Rcpp::NumericVector state = get_state();
+      rv[ii] = state;
+      ii++;
+    }
+    
+    check_state();
 
     int newdays = 0;
     while (newdays < days)
@@ -465,28 +573,33 @@ public:
         m_time -= 1.0;
         m_day++;
         newdays++;
-        if(m_day >= 366)
-        {
-          m_day = 1;
-          m_year++;
-        }
 
         Rcpp::NumericVector state = get_state();
-        rv[newdays-1] = state;
+        
+        if constexpr (CTS.debug){
+          if(ii >= rv.size()) Rcpp::stop("Logic error in update");
+        }
+        
+        rv[ii] = state;
+        ii++;        
       }
 
+      check_state();
       Rcpp::checkUserInterrupt();
     };
+    
+    check_state();
 
     return rv;
   }
 
   auto get_vitals() const noexcept(!CTS.debug)
     -> Rcpp::NumericVector
-  {
+  {    
+    check_state();
+    
     using namespace Rcpp;
     NumericVector rv = NumericVector::create(
-      _["Year"] = static_cast<double>(m_year),
       _["Day"] = static_cast<double>(m_day),
       _["Alive"] = get_fertile() + get_infertile()
     );

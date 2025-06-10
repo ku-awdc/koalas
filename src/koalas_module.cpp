@@ -5,6 +5,7 @@
 struct Settings
 {
   bool debug = true;
+  double tol = 1e-7;
 };
 constexpr Settings debug { .debug = true };
 // constexpr Settings run { .debug = false };

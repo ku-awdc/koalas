@@ -37,7 +37,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param parameters a list of parameter values - see the set_parameters method for the allowed values
     #'
     #' @return A new within-group model object
-    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list()){
+    initialize = function(start_date = "2022-01-01", num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list()){
 
       qassert(num_V, "X1(0,)")
       qassert(num_I, "X1(0,)")
@@ -80,14 +80,15 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param birthrate #8:  Birth rate (assumed not density-dependent, for now)
     #' @param acute_duration #9:  Average duration of acute (increased mortality) phase before progressing to chronic (normal mortality) phase
     #' @param lifespan_natural #10:  Average lifespan of uninfected koalas (assumed not density-dependent, for now)
-    #' @param lifespan_diseased #11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25% die before entering Cf
+    #' @param lifespan_acute #11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25% die before entering Cf
+    #' @param lifespan_chronic #11:  Disease-related mortality rate (replacement for #10)
     #' @param relative_fecundity #12:  Relative fecundity of diseased animals - NOTE: we ignore males as only females are important for reproduction
     #' @param sensitivity sensitivity of lab test to detect shedding in I(f), Af, Cf
     #' @param specificity specificity of lab test to not detect shedding in other compartments
-    #' @param treatment_dest_R proportion of treated I(f)/Af/Cf animals that are cured of infection (go to R(f))
-    #' @param treatment_dest_N proportion of treated I(f)/Af/Cf animals that are released as non-shedding (go to N(f))
-    #' @param treatment_dest_IAC proportion of treated I(f)/Af/Cf animals that are released while still shedding (possibly due to a false-negative test)
-    #' @param treatment_dest_remove proportion of treated I(f)/Af/Cf animals that are removed permanently due to failure to cure
+    #' @param cure_prob_N proportion of N(f) animals with a completed treatment course that are cured of infection (go to R(f))
+    #' @param cure_prob_I proportion of I(f) animals with a completed treatment course that are cured of infection (go to R(f))
+    #' @param cure_prob_A proportion of Af animals with a completed treatment course that are cured of infection (go to Rf)
+    #' @param cure_prob_C proportion of Cf animals with a completed treatment course that are cured of infection (go to Rf)
     #' @param vaccine_efficacy proportion of S(f) animals that have effective vaccination i.e. go to V(f)
     #' @param vaccine_booster proportion of already-vaccinated/immune animals that re-start their time in that category due to the “booster effect” i.e. V(f), N(f), and R(f)
     #' @param passive_intervention_rate rate at which animals are brought in for test/treatment/vaccination passively (can be interpreted as the expected number of times per year each animal is brought in)
@@ -104,14 +105,15 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       birthrate,
       acute_duration,
       lifespan_natural,
-      lifespan_diseased,
+      lifespan_acute,
+      lifespan_chronic,
       relative_fecundity,
       sensitivity,
       specificity,
-      treatment_dest_R,
-      treatment_dest_N,
-      treatment_dest_IAC,
-      treatment_dest_remove,
+      cure_prob_N,
+      cure_prob_I,
+      cure_prob_A,
+      cure_prob_C,
       vaccine_efficacy,
       vaccine_booster,
       passive_intervention_rate){
@@ -133,14 +135,15 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         "birthrate" = rt,
         "acute_duration" = dr,
         "lifespan_natural" = dr,
-        "lifespan_diseased" = dr,
+        "lifespan_acute" = dr,
+        "lifespan_chronic" = dr,
         "relative_fecundity" = pb,
         "sensitivity" = pb,
         "specificity" = pb,
-        "treatment_dest_R" = pb,
-        "treatment_dest_N" = pb,
-        "treatment_dest_IAC" = pb,
-        "treatment_dest_remove" = pb,
+        "cure_prob_N" = pb,
+        "cure_prob_I" = pb,
+        "cure_prob_A" = pb,
+        "cure_prob_C" = pb,
         "vaccine_efficacy" = pb,
         "vaccine_booster" = pb,
         "passive_intervention_rate" = rt)
@@ -160,10 +163,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
           qassert(parameters[[pp]], parnames[pp])
         }
       }
-
-      # Additional check
-      sumdst <- parameters[["treatment_dest_R"]] + parameters[["treatment_dest_N"]] + parameters[["treatment_dest_IAC"]] + parameters[["treatment_dest_remove"]]
-      if(!all.equal(sumdst, 1.0)) stop("The treatment_dest parameters must sum to 1")
 
       private$.obj$parameters <- list_simplify(parameters)
 
@@ -185,11 +184,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param If number of If
     #' @param Nf number of Nf
     #' @param Rf number of Rf
-    #' @param Year current year (you probably shouldn't change this)
-    #' @param Day current day (you probably shouldn't change this)
-    #' @param SumTx cumulative total number of animals treated (you probably shouldn't change this)
-    #' @param SumVx cumulative total number of animals vaccinated (you probably shouldn't change this)
-    #' @param SumRx cumulative total number of animals removed due to failure to cure (you probably shouldn't change this)
+    #' @param Day current day of the simulation (you probably shouldn't change this)
+    #' @param SumTx cumulative total number of animals with a successful treatment course (you probably shouldn't change this)
+    #' @param SumVx cumulative total number of animals vaccinated - this excludes the animals also treated (you probably shouldn't change this)
+    #' @param SumRx cumulative total number of animals removed due to voluntary culling and failure to cure (you probably shouldn't change this)
     #' @param SumMx cumulative mortality due to disease excluding SumRx (you probably shouldn't change this)
     #'
     #' @return self, invisibly
@@ -206,7 +204,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       If,
       Nf,
       Rf,
-      Year,
       Day,
       SumTx,
       SumVx,
@@ -229,7 +226,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         "If",
         "Nf",
         "Rf",
-        "Year",
         "Day",
         "SumTx",
         "SumVx",
@@ -237,7 +233,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         "SumMx")
       statenames <- rep("N1[0,)", length(sn))
       names(statenames) <- sn
-      statenames[c("Year","Day")] <- "X1[0,)"
+      statenames["Day"] <- "X1[0,)"
 
       argnames <- names(formals(self$set_state))
       stopifnot(
@@ -271,11 +267,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       qassert(d_time, "N1(0,)")
       private$check_state()
 
-      # If this is the first call to update log time=0:
-      if(length(private$.allres)==0L){
-        private$.allres <- list(self$state |> as_tibble())
-      }
-
       private$.obj$update(n_days, d_time) |>
         lapply(as.list) |>
         lapply(as_tibble) |>
@@ -292,7 +283,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' Implement a (one-time) active sampling/capture/testing of all animals
     #' @param number the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)
     #' @param proportion the proportion of animals to test/treat/vaccinate
-    active_intervention = function(number, proportion){
+    active_intervention = function(number, proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3){
 
       if(missing(proportion)){
         qassert(number, "N1(0,]")
@@ -304,8 +295,11 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       }
 
       qassert(proportion, "N1[0,1]")
+      qassert(cull_positive, "N1[0,1]")
+      qassert(cull_acute, "N1[0,1]")
+      qassert(cull_chronic, "N1[0,1]")
 
-      private$.obj$active_intervention(proportion)
+      private$.obj$active_intervention(proportion, cull_positive, cull_acute, cull_chronic)
       private$check_state()
 
       invisible(self)
@@ -335,25 +329,26 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(1.75,3), #4
+        beta = rep(2.1,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
         birthrate = rep(0.38,3), #8
         acute_duration = c(0.4, NA_real_, NA_real_), #9
-        lifespan_natural = c(5.0, 3.0, 12.0), #10
-        lifespan_diseased = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated)
+        lifespan_natural = c(6.0, 3.0, 12.0), #10
+        lifespan_chronic = c(4.8, NA_real_, NA_real_), #11
+        lifespan_acute = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated)
         relative_fecundity = c(0.0, 0.0, 0.1), #12 - ignoring males
 
         sensitivity = c(0.95, 0.90, 1.0),
         specificity = c(0.999, 0.99, 1.0),
-        treatment_dest_R = rep(0.6, 3),
-        treatment_dest_N = rep(0.2, 3),
-        treatment_dest_IAC = rep(0, 3),
-        treatment_dest_remove = rep(0.2, 3),
+        cure_prob_N = c(0.9, NA_real_, NA_real_),
+        cure_prob_I = c(0.9, NA_real_, NA_real_),
+        cure_prob_A = c(0.75, NA_real_, NA_real_),
+        cure_prob_C = c(0.6, NA_real_, NA_real_),
         vaccine_efficacy = c(0.5, NA_real_, NA_real_),
         vaccine_booster = c(1, 1, 1), # relative to vaccine efficacy
-        passive_intervention_rate = -log(1-c(0.02, 0.01, 0.04))
+        passive_intervention_rate = c(0.03, 0.01, 0.05) #-log(1-c(0.02, 0.01, 0.04))
       ) |>
         lapply(\(x) x[1L]) ->
         pars
@@ -361,13 +356,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       ## Relative to #1:
       pars[["vacc_redshed_duration"]] <- pars[["vacc_immune_duration"]] * pars[["vacc_redshed_duration"]]
       pars[["natural_immune_duration"]] <- pars[["vacc_immune_duration"]] * pars[["natural_immune_duration"]]
-
-      ## Normalise treatment dest against sensitivity
-      pars[["treatment_dest_IAC"]] <- 1 - pars[["sensitivity"]]
-      for(nn in c("treatment_dest_R","treatment_dest_N","treatment_dest_remove")) pars[[nn]] <- pars[[nn]] - (1 - pars[["sensitivity"]])/3
-      stopifnot(
-        pars[c("treatment_dest_R","treatment_dest_N","treatment_dest_remove","treatment_dest_IAC")] |> unlist() |> sum() |> all.equal(1)
-      )
 
       ## Relative to vaccine efficacy:
       pars[["vaccine_booster"]] <- pars[["vaccine_booster"]] * pars[["vaccine_efficacy"]]
@@ -378,11 +366,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     default_state = function(){
 
-      prev <- 0.0205
-      N <- 257.5
+      prev <- 0.0#0.0205
+      N <- 300.0#257.5
 
       c(
-        Year = 0.0,
         Day = 0.0,
         S = N * (1.0-prev),
         V = 0.0,
@@ -406,8 +393,8 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     check_state = function(){
       state <- private$.obj$state
-      stopifnot(state[-15] >= 0, !is.na(state), is.finite(state), state["Day"]<=365)
-      state <- state[-c(1:2, 16:19)]
+      stopifnot(state[-14] >= 0, !is.na(state), is.finite(state))
+      state <- state[-c(1, 15:18)]
       stopifnot(all.equal(sum(state),0))
     }
 
@@ -416,20 +403,20 @@ KoalasV2 <- R6::R6Class("KoalasV2",
   ## Active binding functions:
   active = mlist(
 
-    #' @field time the current time point of the model (read-only)
-    time = function(){
-      private$.obj$vitals[1:2]
+    #' @field day the current day number of the model (read-only)
+    day = function(){
+      private$.obj$vitals[1]
     },
 
     #' @field N the total number of animals alive (read-only)
     N = function(){
-      private$.obj$vitals[3] |> as.numeric()
+      private$.obj$vitals[2] |> as.numeric()
     },
 
     #' @field state a list representing the current state of the model
     state = function(value){
       if(missing(value)){
-        state <- as.list(private$.obj$state[c(3:14,1:2,16:19)])
+        state <- as.list(private$.obj$state[c(3:14,1:2,16:19)-1])
         return(state)
       }
       stopifnot(is.list(value))
@@ -448,14 +435,14 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       if(length(private$.allres)==0L) stop("Model has not been updated")
       private$.allres |>
         bind_rows() |>
-        select(.data$Year, .data$Day, everything())
+        select(.data$Day, everything())
     },
 
     #' @field results_long a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)
     results_long = function(){
       model$results_wide |>
-        select(.data$Year:.data$Rf) |>
-        mutate(Year = .data$Year + .data$Day/365, Total = rowSums(across(-c(.data$Year, .data$Day))), Sum=Total) |>
+        select(.data$Day:.data$Rf) |>
+        mutate(Year = .data$Day/365, Total = rowSums(across(-c(.data$Year, .data$Day))), Sum=Total) |>
         mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf+.data$N+.data$Nf) |>
         select(.data$Year, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
         pivot_longer(.data$Total:.data$Immune, names_to="Compartment", values_to="Koalas") |>

@@ -95,14 +95,15 @@ Change one or more current parameter values
   birthrate,
   acute_duration,
   lifespan_natural,
-  lifespan_diseased,
+  lifespan_acute,
+  lifespan_chronic,
   relative_fecundity,
   sensitivity,
   specificity,
-  treatment_dest_R,
-  treatment_dest_N,
-  treatment_dest_IAC,
-  treatment_dest_remove,
+  cure_prob_N,
+  cure_prob_I,
+  cure_prob_A,
+  cure_prob_C,
   vaccine_efficacy,
   vaccine_booster,
   passive_intervention_rate
@@ -132,7 +133,9 @@ Change one or more current parameter values
 
 \item{\code{lifespan_natural}}{#10:  Average lifespan of uninfected koalas (assumed not density-dependent, for now)}
 
-\item{\code{lifespan_diseased}}{#11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25\% die before entering Cf}
+\item{\code{lifespan_acute}}{#11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25\% die before entering Cf}
+
+\item{\code{lifespan_chronic}}{#11:  Disease-related mortality rate (replacement for #10)}
 
 \item{\code{relative_fecundity}}{#12:  Relative fecundity of diseased animals - NOTE: we ignore males as only females are important for reproduction}
 
@@ -140,13 +143,13 @@ Change one or more current parameter values
 
 \item{\code{specificity}}{specificity of lab test to not detect shedding in other compartments}
 
-\item{\code{treatment_dest_R}}{proportion of treated I(f)/Af/Cf animals that are cured of infection (go to R(f))}
+\item{\code{cure_prob_N}}{proportion of N(f) animals with a completed treatment course that are cured of infection (go to R(f))}
 
-\item{\code{treatment_dest_N}}{proportion of treated I(f)/Af/Cf animals that are released as non-shedding (go to N(f))}
+\item{\code{cure_prob_I}}{proportion of I(f) animals with a completed treatment course that are cured of infection (go to R(f))}
 
-\item{\code{treatment_dest_IAC}}{proportion of treated I(f)/Af/Cf animals that are released while still shedding (possibly due to a false-negative test)}
+\item{\code{cure_prob_A}}{proportion of Af animals with a completed treatment course that are cured of infection (go to Rf)}
 
-\item{\code{treatment_dest_remove}}{proportion of treated I(f)/Af/Cf animals that are removed permanently due to failure to cure}
+\item{\code{cure_prob_C}}{proportion of Cf animals with a completed treatment course that are cured of infection (go to Rf)}
 
 \item{\code{vaccine_efficacy}}{proportion of S(f) animals that have effective vaccination i.e. go to V(f)}
 

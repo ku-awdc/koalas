@@ -52,6 +52,18 @@ public:
     {
       m_values[i] += m_changes[i];
       m_changes[i] = 0.0;
+      
+      // Zap occasional small negative values (no adjustment to m_Z, so it can't happen too often):
+      if(m_values[i] < 0.0 & std::abs(m_values[i]) < CTS.tol){        
+        m_values[i] = 0.0;
+      }
+      
+      if constexpr (CTS.debug){
+        if(m_values[i] < 0.0){
+          Rcpp::Rcout << m_values[i] << " < 0.0\n";
+          Rcpp::stop("Applying changes caused a negative value");
+        }
+      }      
     }
   }
 
@@ -98,8 +110,9 @@ public:
     return rv;
   }
 
+  /*
   auto remove_number(double const number) noexcept(!CTS.debug)
-    -> void
+    -> double
   {
     if (number > 0.0)
     {
@@ -113,7 +126,9 @@ public:
         val *= propr;
       }
     }
+    return number;
   }
+  */
 
   [[nodiscard]] auto take_prop(double const prop) noexcept(!CTS.debug)
     -> double
@@ -123,6 +138,9 @@ public:
       double const tt = m_values[i] * prop;
       rv += tt;
       m_changes[i] -= tt;
+    }
+    if constexpr (CTS.debug){
+      if(rv < 0.0) Rcpp::stop("Returning negative value from take_prop");
     }
     return rv;
   }
@@ -138,6 +156,9 @@ public:
       carry = m_values[i] * prop;
       m_changes[i] -= carry;
     }
+    if constexpr (CTS.debug){
+      if(carry < 0.0) Rcpp::stop("Returning negative value from carry_rate");
+    }    
     return carry;
   }
 
