@@ -260,11 +260,13 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' Update the model for one or more day
     #' @param n_days the number of days to update for
     #' @param d_time the desired time step (delta time)
+    #' @param record should the state over time be recorded?
     #' @return self, invisibly
-    update = function(n_days = 1L, d_time=1/24){
+    update = function(n_days = 1L, d_time=1/24, record=TRUE){
 
       qassert(n_days, "X1(0,)")
       qassert(d_time, "N1(0,)")
+      qassert(record, "B1")
       private$check_state()
 
       private$.obj$update(n_days, d_time) |>
@@ -274,15 +276,19 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         newres
 
       private$check_state()
-      private$.allres <- c(private$.allres, list(newres))
+      if(record) private$.allres <- c(private$.allres, list(newres))
 
       invisible(self)
     },
 
     #' @description
     #' Implement a (one-time) active sampling/capture/testing of all animals
+    #'
     #' @param number the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)
     #' @param proportion the proportion of animals to test/treat/vaccinate
+    #' @param cull_positive the proportion of test-positive animals that will be culled
+    #' @param cull_acute the proportion of acute diseased animals that will be culled
+    #' @param cull_chronic the proportion of chronic diseased animals that will be culled
     active_intervention = function(number, proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3){
 
       if(missing(proportion)){
@@ -329,15 +335,15 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.1,3), #4
+        beta = rep(2.2,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
         birthrate = rep(0.38,3), #8
-        acute_duration = c(0.4, NA_real_, NA_real_), #9
+        acute_duration = c(0.4, NA_real_, NA_real_), #9 - 99% progress to Dead/Cf within 1 year (with alpha=3)
         lifespan_natural = c(6.0, 3.0, 12.0), #10
         lifespan_chronic = c(4.8, NA_real_, NA_real_), #11
-        lifespan_acute = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated)
+        lifespan_acute = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated for alpha=3 and acute_duration = 0.4)
         relative_fecundity = c(0.0, 0.0, 0.1), #12 - ignoring males
 
         sensitivity = c(0.95, 0.90, 1.0),

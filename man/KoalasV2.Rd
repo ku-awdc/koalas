@@ -9,7 +9,7 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{time}}{the current time point of the model (read-only)}
+\item{\code{day}}{the current day number of the model (read-only)}
 
 \item{\code{N}}{the total number of animals alive (read-only)}
 
@@ -42,6 +42,7 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 Create a new single-group koala model
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{KoalasV2$new(
+  start_date = "2022-01-01",
   num = 3L,
   num_V = num,
   num_I = num,
@@ -182,7 +183,6 @@ Change one or more current state values
   If,
   Nf,
   Rf,
-  Year,
   Day,
   SumTx,
   SumVx,
@@ -218,15 +218,13 @@ Change one or more current state values
 
 \item{\code{Rf}}{number of Rf}
 
-\item{\code{Year}}{current year (you probably shouldn't change this)}
+\item{\code{Day}}{current day of the simulation (you probably shouldn't change this)}
 
-\item{\code{Day}}{current day (you probably shouldn't change this)}
+\item{\code{SumTx}}{cumulative total number of animals with a successful treatment course (you probably shouldn't change this)}
 
-\item{\code{SumTx}}{cumulative total number of animals treated (you probably shouldn't change this)}
+\item{\code{SumVx}}{cumulative total number of animals vaccinated - this excludes the animals also treated (you probably shouldn't change this)}
 
-\item{\code{SumVx}}{cumulative total number of animals vaccinated (you probably shouldn't change this)}
-
-\item{\code{SumRx}}{cumulative total number of animals removed due to failure to cure (you probably shouldn't change this)}
+\item{\code{SumRx}}{cumulative total number of animals removed due to voluntary culling and failure to cure (you probably shouldn't change this)}
 
 \item{\code{SumMx}}{cumulative mortality due to disease excluding SumRx (you probably shouldn't change this)}
 }
@@ -242,7 +240,7 @@ self, invisibly
 \subsection{Method \code{update()}}{
 Update the model for one or more day
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$update(n_days = 1L, d_time = 1/24)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$update(n_days = 1L, d_time = 1/24, record = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -251,6 +249,8 @@ Update the model for one or more day
 \item{\code{n_days}}{the number of days to update for}
 
 \item{\code{d_time}}{the desired time step (delta time)}
+
+\item{\code{record}}{should the state over time be recorded?}
 }
 \if{html}{\out{</div>}}
 }
@@ -264,7 +264,13 @@ self, invisibly
 \subsection{Method \code{active_intervention()}}{
 Implement a (one-time) active sampling/capture/testing of all animals
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$active_intervention(number, proportion)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$active_intervention(
+  number,
+  proportion,
+  cull_positive = 0,
+  cull_acute = 0.2,
+  cull_chronic = 0.3
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -273,6 +279,12 @@ Implement a (one-time) active sampling/capture/testing of all animals
 \item{\code{number}}{the (maximum) number of animals to test/treat/vaccinate (ignored if proportion is supplied)}
 
 \item{\code{proportion}}{the proportion of animals to test/treat/vaccinate}
+
+\item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
+
+\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
+
+\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
 }
 \if{html}{\out{</div>}}
 }
