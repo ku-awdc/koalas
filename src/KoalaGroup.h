@@ -552,15 +552,15 @@ public:
 
     int ii = 0;
     if(!m_recording){
-      Rcpp::NumericVector state = get_state();
-      rv[ii] = state;
-      ii++;
-      
       // Reset cumulative counters:
       m_sumTx = 0.0;
       m_sumVx = 0.0;
       m_sumRx = 0.0;
       m_sumMx = 0.0;
+      
+      Rcpp::NumericVector state = get_state();
+      rv[ii] = state;
+      ii++;      
     }
     m_recording = record;
 
