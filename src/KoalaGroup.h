@@ -618,6 +618,7 @@ public:
     return rv;
   }
 
+  // Lazy facilitation of cloning from R6 when we aren't sure of the class template parameters:
   auto clone() const noexcept(!CTS.debug)
     -> KoalaGroup<CTS, s_nV, s_nI, s_nN, s_nR, s_nA>
   {

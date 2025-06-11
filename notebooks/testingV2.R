@@ -6,6 +6,7 @@ library("koalas")
 ## Vaccine immune duration
 mm <- KoalasV2$new(3)
 m2 <- mm$clone(deep=TRUE)
+
 mm$set_state(
   S = 0,
   V = 100,
@@ -15,8 +16,9 @@ mm$set_state(
   Af = 0,
   Cf = 0
 )
-mm$update(10)
-m2$update(1)
+
+mm$state |> simplify2array()
+m2$state |> simplify2array()
 
 m2$results_wide
 mm$results_wide

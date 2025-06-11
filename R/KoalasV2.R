@@ -576,8 +576,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     deep_clone = function(name, value){
 
       if(name==".obj"){
-        #browser()
-        return(value)
+        newobj <- value$clone()
       }else{
         return(value)
       }

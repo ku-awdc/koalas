@@ -18,67 +18,28 @@ RcppModuleClassName* invalidate_default_constructor() {
 } //blofeld
 
 
-template <bool s_t>
-class Simple
-{
-public:
-  int i = 0;
-
-  Simple(int ii, bool fake) : i(ii)
-  {
-
-  }
-
-  Simple(Simple const& obj)
-  {
-    Rcpp::Rcout << "Copying...\n";
-    i = obj.i+1;
-  }
-
-  // TODO: cloning can cause R to abort if the original pointer is invalid
-  Simple clone() const
-  {
-    return Simple(*this);
-  }
-
-};
-using SimpleTrue = Simple<true>;
-RCPP_EXPOSED_AS(SimpleTrue)
-RCPP_EXPOSED_WRAP(SimpleTrue)
-
-int testfun()
-{
-  SimpleTrue tt = SimpleTrue(0, true);
-  SimpleTrue copy = SimpleTrue(tt);
-  return copy.i;
-}
-
-
 using KoalaGroupD3 = KoalaGroup<debug, 3U, 3U, 3U, 3U, 3U>;
 RCPP_EXPOSED_AS(KoalaGroupD3)
 RCPP_EXPOSED_WRAP(KoalaGroupD3)
-// Note: can't use RCPP_EXPOSED_CLASS with aliases
+
+using KoalaGroupD1 = KoalaGroup<debug, 1U, 1U, 1U, 1U, 1U>;
+RCPP_EXPOSED_AS(KoalaGroupD1)
+RCPP_EXPOSED_WRAP(KoalaGroupD1)
+
+using KoalaGroupD0 = KoalaGroup<debug, 0U, 0U, 0U, 0U, 0U>;
+RCPP_EXPOSED_AS(KoalaGroupD0)
+RCPP_EXPOSED_WRAP(KoalaGroupD0)
 
 
 RCPP_MODULE(koalas){
 
 	using namespace Rcpp;
 
-  function("testfun", &testfun);
-
-  class_<Simple<true>>("Simple")
-    .factory(invalidate_default_constructor)
-    .constructor<int, bool>("C'tor")
-    .constructor<SimpleTrue&>("Copy c'tor")
-    .field("i", &Simple<true>::i)
-    .method("clone", &Simple<true>::clone)
-  ;
-
   class_<KoalaGroupD3>("KoalaGroupD3")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
-    //.constructor<KoalaGroupD3&>("Copy constructor")
-    .method("clone", &KoalaGroupD3::clone, "Clone method")
+    .constructor<KoalaGroupD3&>("Copy constructor")
+    .method("clone", &KoalaGroupD3::clone, "Clone method (probably better to use the copy c'tor)")
 
     .method("update", &KoalaGroupD3::update, "Update method")
     .method("active_intervention", &KoalaGroupD3::active_intervention, "Apply an active sampling intervention")
@@ -88,10 +49,11 @@ RCPP_MODULE(koalas){
     .property("parameters", &KoalaGroupD3::get_pars, &KoalaGroupD3::set_pars, "Get and set parameters")
   ;
 
-  using KoalaGroupD1 = KoalaGroup<debug, 1U, 1U, 1U, 1U, 1U>;
   class_<KoalaGroupD1>("KoalaGroupD1")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
+    .constructor<KoalaGroupD1&>("Copy constructor")
+    .method("clone", &KoalaGroupD1::clone, "Clone method (probably better to use the copy c'tor)")
 
     .method("update", &KoalaGroupD1::update, "Update method")
     .method("active_intervention", &KoalaGroupD1::active_intervention, "Apply an active sampling intervention")
@@ -101,10 +63,11 @@ RCPP_MODULE(koalas){
     .property("parameters", &KoalaGroupD1::get_pars, &KoalaGroupD1::set_pars, "Get and set parameters")
   ;
 
-  using KoalaGroupD0 = KoalaGroup<debug, 0U, 0U, 0U, 0U, 0U>;
   class_<KoalaGroupD0>("KoalaGroupD0")
     .factory(invalidate_default_constructor)
     .constructor<IntegerVector const, NumericVector const, NumericVector const>("Constructor with ncomps vector, parameter vector and state vector")
+    .constructor<KoalaGroupD0&>("Copy constructor")
+    .method("clone", &KoalaGroupD0::clone, "Clone method (probably better to use the copy c'tor)")
 
     .method("update", &KoalaGroupD0::update, "Update method")
     .method("active_intervention", &KoalaGroupD0::active_intervention, "Apply an active sampling intervention")
