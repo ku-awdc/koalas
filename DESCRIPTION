@@ -19,6 +19,8 @@ Imports:
   methods,
   rlang,
   dplyr,
+  ggplot2,
+  ggh4x,
   tibble,
   tidyr,
   purrr,
@@ -29,8 +31,6 @@ Imports:
   Rcpp,
   R6
 Suggests: 
-  ggplot2,
-  neatpkg,
   knitr,
   rmarkdown,
   spelling,

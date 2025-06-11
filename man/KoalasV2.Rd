@@ -40,6 +40,7 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \item \href{#method-KoalasV2-burnin}{\code{KoalasV2$burnin()}}
 \item \href{#method-KoalasV2-run}{\code{KoalasV2$run()}}
 \item \href{#method-KoalasV2-print}{\code{KoalasV2$print()}}
+\item \href{#method-KoalasV2-autoplot}{\code{KoalasV2$autoplot()}}
 \item \href{#method-KoalasV2-clone}{\code{KoalasV2$clone()}}
 }
 }
@@ -367,6 +368,44 @@ Print method giving an overview of the current state and parameter values
 
 \subsection{Returns}{
 self, invisibly
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasV2-autoplot"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV2-autoplot}{}}}
+\subsection{Method \code{autoplot()}}{
+autoplot method for a default plot
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$autoplot(
+  prev_line = 5,
+  number_line = NULL,
+  ymax = c(Treatment = NA_real_, Number = NA_real_, Prevalence = 100),
+  alphas = c(Treatment = 0.25, Number = 0.5, Prevalence = 0.25),
+  colours = c(Diseased = "#F8766D", Infectious = "#F9C945", Healthy = "#619CFF",
+    Treatment = "forestgreen", Prevalence = "black"),
+  dot_col = "grey50"
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{prev_line}}{an optional dotted line for target prevalence}
+
+\item{\code{number_line}}{an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size}
+
+\item{\code{ymax}}{a named numeric vector of maximum values for the y axis}
+
+\item{\code{alphas}}{a named numeric vector of alpha values for each subplot}
+
+\item{\code{colours}}{a named numeric vector of colour values for each subplot/compartment}
+
+\item{\code{dot_col}}{the colour to use for the dotted prevalence and number lines}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a ggplot2 object
 }
 }
 \if{html}{\out{<hr>}}

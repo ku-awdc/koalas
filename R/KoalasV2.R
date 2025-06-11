@@ -11,13 +11,15 @@ mlist <- IPDMR:::mlist
 #' @import R6
 #' @import stringr
 #' @import dplyr
+#' @import ggplot2
 #' @import tibble
 #' @import tidyr
 #' @importFrom methods new
 #' @importFrom rlang .data
 #' @importFrom checkmate qassert assert_number assert_date
-#' @importFrom purrr list_simplify
+#' @importFrom purrr list_simplify accumulate
 #' @importFrom forcats fct
+#' @importFrom ggh4x scale_y_facet
 #'
 #' @export
 KoalasV2 <- R6::R6Class("KoalasV2",
@@ -329,8 +331,8 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       stopifnot(self$day == 0L)
 
       prev <- 0.05
-      N <- 272
-      days <- 197
+      N <- 275
+      days <- 175
 
       state <- do.call(self$set_state, args=private$default_state() |> as.list())
       self$set_state(S=N*(1-prev), I=N*prev)
@@ -398,7 +400,89 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       print(self$state)
 
       invisible(self)
+    },
+
+    #' @description
+    #' autoplot method for a default plot
+    #'
+    #' @param prev_line an optional dotted line for target prevalence
+    #' @param number_line an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size
+    #' @param ymax a named numeric vector of maximum values for the y axis
+    #' @param alphas a named numeric vector of alpha values for each subplot
+    #' @param colours a named numeric vector of colour values for each subplot/compartment
+    #' @param dot_col the colour to use for the dotted prevalence and number lines
+    #'
+    #' @return a ggplot2 object
+    autoplot = function(prev_line = 5, number_line = NULL, ymax = c(Treatment=NA_real_, Number=NA_real_, Prevalence=100), alphas = c(Treatment=0.25, Number=0.5, Prevalence=0.25), colours = c(Diseased="#F8766D", Infectious="#F9C945", Healthy="#619CFF", Treatment="forestgreen", Prevalence="black"), dot_col="grey50"){
+
+      if(is.null(number_line)) number_line <- self$results_long |> filter(Compartment=="Total") |> slice(1L) |> pull(Koalas)
+
+      self$results_long |>
+        filter(.data$Compartment=="Infectious") |>
+        mutate(Subplot = "Prevalence of Infection (%)", Compartment = "Infectious") |>
+        select("Date", "Subplot", "Compartment", "Value"="Percent") ->
+        prevdata
+
+      self$results_wide |>
+        select("Date":"Rf") |>
+        mutate(Total = rowSums(across(-c("Date", "Day")))) |>
+        mutate(Healthy=.data$S+.data$V+.data$N+.data$R+.data$Sf+.data$Vf+.data$Nf+.data$Rf, Infectious=.data$I+.data$If, Diseased=.data$Af+.data$Cf) |>
+        select("Date", "Total", "Healthy", "Infectious", "Diseased") |>
+        pivot_longer("Healthy":"Diseased", names_to="Compartment", values_to="Koalas") |>
+        mutate(Compartment = fct(.data$Compartment, levels=c("Diseased","Infectious","Healthy"))) |>
+        arrange(.data$Date, .data$Compartment) |>
+        group_by(Date) |>
+        mutate(Cumulative = accumulate(Koalas, `+`), Lower = lag(Cumulative, default=0)) |>
+        ungroup() |>
+        mutate(Subplot = "Number of Koalas") ->
+        totaldata
+
+      self$treatments |>
+        filter(.data$Type=="Treated") |>
+        mutate(Subplot = "Cumulative Treatments", Compartment = "Treated") |>
+        select("Date", "Subplot", "Compartment", "Value"="Cumulative") ->
+        treatdata
+
+      pt <- ggplot() +
+        geom_ribbon(data=prevdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Prevalence"], fill=colours["Prevalence"]) +
+        geom_ribbon(data=treatdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Treatment"], fill=colours["Treatment"]) +
+        geom_ribbon(data=totaldata, mapping=aes(x=.data$Date, ymin=.data$Lower, ymax=.data$Cumulative, fill=.data$Compartment), alpha=alphas["Number"]) +
+        geom_line(data=prevdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Prevalence"]) +
+        geom_line(data=totaldata, mapping=aes(x=.data$Date, y=.data$Cumulative, col=.data$Compartment)) +
+        geom_line(data=treatdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Treatment"]) +
+        geom_hline(data=tibble(Subplot = prevdata$Subplot[1], Value = prev_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
+        geom_hline(data=tibble(Subplot = totaldata$Subplot[1], Value = number_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
+        facet_wrap(~.data$Subplot, ncol=1, scales="free_y") +
+        xlab(NULL) + ylab(NULL) +
+        scale_fill_manual(values=colours) +
+        scale_color_manual(values=colours) +
+        guides(fill = guide_legend(reverse = TRUE, title=element_blank()), color = "none") +
+        theme_light() +
+        theme(
+          strip.background = element_rect(fill="grey95"),
+          strip.text=element_text(color="black")
+        )
+
+
+      pt +
+        scale_y_facet(
+          .data$Subplot == prevdata$Subplot[1],
+          limits = c(0, ymax["Prevalence"])
+        ) +
+        scale_y_facet(
+          .data$Subplot == totaldata$Subplot[1],
+          limits = c(0, ymax["Number"])
+        ) +
+        scale_y_facet(
+          .data$Subplot == treatdata$Subplot[1],
+          limits = c(0, ymax["Treatment"])
+        ) ->
+        pt
+
+
+      return(pt)
     }
+
   ),
 
   private = mlist(
@@ -421,9 +505,9 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.25,3), #4
+        beta = rep(2.75,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
-        subclinical_recover_proportion = c(0.05, NA_real_, NA_real_),  #6
+        subclinical_recover_proportion = c(0.35, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
         birthrate = rep(0.38,3), #8
         acute_duration = c(0.4, NA_real_, NA_real_), #9 - 99% progress to Dead/Cf within 1 year (with alpha=3)
@@ -532,19 +616,19 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       private$.allres |>
         bind_rows() |>
         mutate(Date = private$.start_date + .data$Day) |>
-        select(.data$Date, .data$Day, everything())
+        select("Date", "Day", everything())
     },
 
     #' @field results_long a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)
     results_long = function(){
       self$results_wide |>
         select(.data$Date:.data$Rf) |>
-        mutate(Total = rowSums(across(-c(.data$Date, .data$Day))), Sum=Total) |>
+        mutate(Total = rowSums(across(-c("Date", "Day"))), Sum=.data$Total) |>
         mutate(Healthy=.data$S+.data$V+.data$N+.data$R, Infectious=.data$I+.data$If+.data$Af+.data$Cf, Diseased=.data$Af+.data$Cf, Infertile=.data$Sf+.data$Vf+.data$Nf+.data$Rf+.data$If+.data$Diseased, Immune=.data$V+.data$Vf+.data$R+.data$Rf+.data$N+.data$Nf) |>
-        select(.data$Date, .data$Total, .data$Healthy:.data$Immune, .data$Sum) |>
-        pivot_longer(.data$Total:.data$Immune, names_to="Compartment", values_to="Koalas") |>
+        select("Date", "Total", "Healthy":"Immune", "Sum") |>
+        pivot_longer("Total":"Immune", names_to="Compartment", values_to="Koalas") |>
         mutate(Percent = .data$Koalas / .data$Sum * 100) |>
-        select(-.data$Sum) |>
+        select(-"Sum") |>
         mutate(Compartment = fct(.data$Compartment, levels=rev(c("Healthy","Immune","Infectious","Diseased","Infertile","Total"))))
     },
 
@@ -556,8 +640,8 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @field treatments a data frame of cumulative treatments and vaccinations from the model (read-only)
     treatments = function(){
       self$results_wide |>
-        select(.data$Date, .data$SumTx, .data$SumVx) |>
-        pivot_longer(-.data$Date, names_to="Type", values_to="Cumulative") |>
+        select("Date", "SumTx", "SumVx") |>
+        pivot_longer(-"Date", names_to="Type", values_to="Cumulative") |>
         mutate(Type = case_match(.data$Type,
           "SumTx" ~ "Treated",
           "SumVx" ~ "Vaccinated"

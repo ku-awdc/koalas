@@ -48,48 +48,37 @@ model$results_wide |>
   geom_vline(xintercept=365, lty="dashed")
 
 
-## Calibration of beta so that we go from 10% to 30% prevalence in 1 year
-model <- KoalasV2$new()
-prev <- 0.10
-N <- 300
-model$set_state(
-  S = N * (1.0-prev),
-  I = N * prev * 0.6,
-  Af = N * prev * 0.3,
-  Cf = N * prev * 0.1
-)
-model$set_parameters(
-  beta = 2.25
-)
-model$update(400)
-model$results_long |>
-  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
-  geom_line() +
-  geom_hline(yintercept=c(10,30), lty="dotted") +
-  geom_vline(xintercept=1, lty="dashed")
 
-
-## Calibration of burnin phase starting at 5% and ending at 10% with 300 koalas
+## Calibration of beta and burnin phase starting at 5% and ending at 10% with 300 koalas then 30% 1 year later
 model <- KoalasV2$new()
 prev <- 0.05
-N <- 272
+N <- 275
 model$set_state(
   S = N * (1.0-prev),
   I = N * prev
 )
 model$set_parameters(
-  beta = 2.25
+  subclinical_recover_proportion = 0.35,
+  beta = 2.75
 )
-model$update(400)
-dd <- 197
+dd <- 175
+model$update(dd+400)
+
 model$results_long |>
-  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
+  mutate(Day = as.numeric(Date - min(Date), units="days")) |>
+  ggplot(aes(x=Day, y=Percent, col=Compartment)) +
   geom_line() +
-  geom_hline(yintercept=10, lty="dashed") +
-  geom_vline(xintercept=dd/365, lty="dotted")
+  geom_hline(yintercept=c(10,30), lty="dotted") +
+  geom_vline(xintercept=c(dd,dd+365), lty="dashed") +
+  labs(title=model$parameters$subclinical_recover_proportion)
+
 model$results_long |>
-  ggplot(aes(x=Date, y=Koalas, col=Compartment)) +
+  filter(Compartment=="Total") |>
+  mutate(Day = as.numeric(Date - min(Date), units="days")) |>
+  ggplot(aes(x=Day, y=Koalas, col=Compartment)) +
   geom_line() +
-  geom_hline(yintercept=300, lty="dashed") +
-  geom_vline(xintercept=dd/365, lty="dotted")
+  geom_hline(yintercept=c(300), lty="dotted") +
+  geom_vline(xintercept=c(dd), lty="dashed") +
+  labs(title=model$parameters$subclinical_recover_proportion)
+
 
