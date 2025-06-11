@@ -6,7 +6,7 @@
 \alias{koalas}
 \title{What the Package Does (One Line, Title Case)}
 \description{
-What the package does (one paragraph).
+The koalas package is intended to be used for exploring chlamydia control programmes. The package is still being developed, and feedback is welcomed!
 }
 \details{
 Some description of the package

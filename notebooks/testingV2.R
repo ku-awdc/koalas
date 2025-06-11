@@ -1,11 +1,67 @@
 library("tidyverse")
 library("koalas")
 
+
 ## Test parameters
+
+## Culling interventions
+mm <- KoalasV2$new(3)
+
+mm$set_state(
+  S = 0,
+  V = 0,
+  I = 100,
+  N = 0,
+  R = 0,
+  Af = 0,
+  Cf = 0
+)
+
+mm$set_parameters(
+  vacc_immune_duration = Inf,
+  natural_immune_duration = Inf,
+  subcinical_duration = Inf,
+  beta = 0,
+  passive_intervention_rate = 0,
+  subclinical_recover_proportion = 0.5,
+  lifespan_natural = Inf,
+  lifespan_acute = Inf,
+  lifespan_chronic = Inf,
+  birthrate = 0,
+  sensitivity = 0.95,
+  specificity = 0.99
+)
+mm$update(365)
+mm$run(5, 4, prop=1, cull_positive=0.5, cull_acute=0.5, cull_chronic=0.5)
+mm$autoplot()
+
+mm <- KoalasV2$new(3)
+mm$burnin()
+mm$run(5, 4, 0.25, cull_positive = 0, cull_acute = 0, cull_chronic = 0)
+mm$autoplot()
+
+mm <- KoalasV2$new(3)
+mm$burnin()
+mm$set_parameters(passive_intervention_rate = 0, specificity=1, sensitivity=1, lifespan_natural=Inf, beta=0, birthrate=0)
+mm$run(5, 4, 0.25, cull_positive = 0, cull_acute = 0.2, cull_chronic = 0.3)
+mm$autoplot()
+
+mm <- KoalasV2$new(3)
+mm$burnin()
+mm$set_parameters(passive_intervention_rate = 0, specificity=0.9, sensitivity=0.9, lifespan_natural=Inf, beta=0, birthrate=0)
+mm$run(5, 4, 0.25, cull_positive = 0, cull_acute = 0.2, cull_chronic = 0.3)
+mm$autoplot()
+
+mm$results_long |>
+  filter(Compartment=="Healthy") |>
+  ggplot(aes(x=Date, y=Koalas)) +
+  geom_line()
+
+# Conclusion: culling is a bad idea, because treatment renews the R/N (Helathy) groups
+
 
 ## Vaccine immune duration
 mm <- KoalasV2$new(3)
-m2 <- mm$clone(deep=TRUE)
 
 mm$set_state(
   S = 0,
@@ -16,12 +72,6 @@ mm$set_state(
   Af = 0,
   Cf = 0
 )
-
-mm$state |> simplify2array()
-m2$state |> simplify2array()
-
-m2$results_wide
-mm$results_wide
 
 mm$set_parameters(
   vacc_immune_duration = 1/12,

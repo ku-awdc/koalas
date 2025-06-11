@@ -173,13 +173,14 @@ private:
     m_Cf.insert_value_start( m_Af.carry_rate(m_ac_rate, d_time) );
 
     update_apply();
+
   }
 
   auto update_passive(double const d_time)
     noexcept(!CTS.debug)
     -> void
   {
-    if (m_passive_rate > 0.0 )
+    if (m_passive_rate > 0.0)
     {
       double const prop = 1.0 - std::exp(-m_passive_rate * d_time);
       treat_vacc_all(prop, s_passive_cull_positive, s_passive_cull_acute, s_passive_cull_chronic);
@@ -192,14 +193,13 @@ private:
   auto treat_vacc_noninf(SrcT& src, DstT& dst, double const prop, double const efficacy) noexcept(!CTS.debug)
     -> void
   {
-    double const test = src.get_sum() * prop;
-
-    // Test positives are treated+vaccinated rather than just vaccinated, but there is no other difference:
-    m_sumTx += (1.0 - m_sp) * test;
-    m_sumVx += m_sp * test;
-
     // Move to or restart in V(f) or R(f):
     dst.insert_value_start( src.take_prop(efficacy * prop) );
+    
+    // Test positives are treated+vaccinated rather than just vaccinated, but there is no other difference:
+    double const test = src.get_sum() * prop;
+    m_sumTx += (1.0 - m_sp) * test;
+    m_sumVx += m_sp * test;
   }
 
   enum class Status { nonshedding, subclinical, diseased };
@@ -210,7 +210,7 @@ private:
                       double const cure_prob) noexcept(!CTS.debug)
     -> void
   {
-    double const n_sampled = src.get_sum() * prop;
+    double const total_n = src.get_sum();
 
     double progressed = prop;
 
@@ -218,7 +218,7 @@ private:
     double const testpos = (s_status==Status::diseased ? 1.0 : (s_status==Status::subclinical ? m_se : (1.0-m_sp)));
     // All animals that are test negative are vaccinated, but this only affects non-shedding:
     double const to_vacc = progressed * (1.0-testpos);
-    m_sumVx += (n_sampled * to_vacc);
+    m_sumVx += (total_n * to_vacc);
     if constexpr (s_status==Status::nonshedding)
     {
       dstN.insert_value_start(src.take_prop(m_vx_bst * to_vacc));
@@ -237,7 +237,7 @@ private:
     progressed *= (1.0 - cull_prob);
 
     // All animals remaining end up being treated:
-    m_sumTx += (n_sampled * progressed);
+    m_sumTx += (total_n * progressed);
 
     // Most have a complete treatment course but some are released early due to a false negative:
     double const treat_complete = (s_status==Status::nonshedding ? 1.0 : m_se); // Note: deliberately not 1-sp here for N!!!
@@ -535,8 +535,13 @@ public:
     noexcept(!CTS.debug)
     -> void
   {
-    treat_vacc_all(prop, cull_positive, cull_acute, cull_chronic);
-    update_apply();
+    // If there are no animals alive then give a warning:
+    if ( m_Z < 0.0 ) {
+      treat_vacc_all(prop, cull_positive, cull_acute, cull_chronic);
+      update_apply();
+    } else {
+      Rcpp::warning("Active intervention requested but no animals alive!");
+    }
   }
 
   auto update(int const days, double const d_time, bool const record) noexcept(!CTS.debug)
@@ -571,15 +576,18 @@ public:
     int newdays = 0;
     while (newdays < days)
     {
-      update_death(d_time);
-      update_birth(d_time);
-      update_disease(d_time);
+      // If there are no animals alive then don't update:
+      if ( m_Z < 0.0 ){
+        update_death(d_time);
+        update_birth(d_time);
+        update_disease(d_time);
+      }
 
       m_time += d_time;
       if(m_time >= 1.0)
       {
         // d_time is 1.0 as this happens once per day:
-        update_passive(1.0);
+        if ( m_Z < 0.0 ) update_passive(1.0);
 
         m_time -= 1.0;
         m_day++;
@@ -609,10 +617,13 @@ public:
   {
     check_state();
 
+    double const nn = get_fertile() + get_infertile();
+    double const prev = (m_I + m_If + m_Af + m_Cf) / nn;
     using namespace Rcpp;
     NumericVector rv = NumericVector::create(
       _["Day"] = static_cast<double>(m_day),
-      _["Alive"] = get_fertile() + get_infertile()
+      _["Alive"] = nn,
+      _["Prevalence"] = prev
     );
 
     return rv;

@@ -13,11 +13,13 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.width=8, fig.height=4
 )
+
+options("pboptions" = list(type = "none"))
 ```
 
 ## Overview
 
-The koalas package is intended to be used for exploring chlamydia control programmes.  The package is currently in an early stage of development.
+The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed (contact details are available [here](https://ivh.ku.dk/english/employees/?pure=en/persons/487288)).
 
 ## Installation
 
@@ -48,7 +50,7 @@ Note that this last step requires C++ compilers.
 
 ## TLDR; Quick guide to running scenarios
 
-The pre-determined scenarios are run in the following way:
+The pre-determined scenarios can be run in the following way:
 
 ```{r}
 library("koalas")
@@ -62,82 +64,120 @@ This runs the model from 1st July 2022 up to 1st October 2025, which is where we
 library("ggplot2")
 theme_set(theme_light())
 
-model$results_long |>
-  ggplot(aes(x=Date, y=Koalas, col=Compartment)) +
-  geom_line() +
-  geom_hline(yintercept=c(300), lty="dotted")
+model$autoplot()
 ```
 
+### Baseline scenario
+
+For the baseline scenario, we can just clone the model and then run it for a further 10 years with no interventions:
+
 ```{r}
-model$results_long |>
-  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
-  geom_line() +
-  geom_hline(yintercept=c(10,30), lty="dotted") +
-  geom_vline(xintercept=as.Date("2022-07-01")+365*c(0,1,3), lty="dashed")
+baseline <- model$clone(deep=TRUE)
+baseline$run(10, sampling_frequency=0)
+baseline$autoplot() +
+  geom_vline(xintercept=baseline$run_dates, lty="dashed")
 ```
 
-Then we can run the model for another 2 phases:
+### Testing interventions (phase 1)
 
-1. High-intensity sampling
-2. Lower-intensity sampling
+For other scenarios, we split into 2 phases:
 
-For each of these we use the run method, with specified sampling interval (any integer, including 0).  For example, we can run a high-intensity period of 2 years with twice yearly sampling:
+1. Phase 1: high-intensity sampling
+2. Phase 2: lower-intensity sampling
+
+For each of these we can use the assess_interventions function - for example:
 
 ```{r}
-model$run(
+phase1 <- assess_interventions(
+  model,
   years = 2,
-  sampling_frequency = 2,
-  proportion = 0.75,
-  cull_positive = 0.0,
-  cull_acute = 0.2,
-  cull_chronic = 0.3
+  frequency = 1:4,
+  proportion = seq(0, 1, by=0.1)  # Change to by=0.01 for more precise results
 )
+
+library("dplyr")
+phase1 |>
+  filter(Prevalence <= 5) |>
+  group_by(Frequency) |>
+  arrange(Proportion) |>
+  slice(1L)
 ```
 
-And then another 8 years with twice yearly sampling at a lower proportion:
+NOTE: these are rough numbers - change to by=0.01 for more precise results!
+
+Then we can plot these results:
 
 ```{r}
-model$run(
+phase1 |>
+  ggplot(aes(x=Proportion, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  theme(legend.position="bottom")
+```
+
+We can also look at the final koala populations:
+
+```{r}
+phase1 |>
+  ggplot(aes(x=Proportion, y=Koalas, col=Frequency)) +
+  geom_line() +
+  theme(legend.position="bottom")
+```
+
+### Testing interventions (phase 2)
+
+For phase 2, we first need to update the model using a phase 1 strategy e.g. a frequency of 4 and sampling proportion of 47% (the minimum required to get prevalence under 5% after 2 years):
+
+```{r}
+model$run(2, sampling_frequency = 4, proportion = 0.47)
+```
+
+We can see that this does reduce the prevalence to less than 5%:
+
+```{r}
+model$autoplot()
+```
+
+Then we can assess phase 2 interventions using this as a starting point:
+
+```{r}
+phase2 <- assess_interventions(
+  model,
   years = 8,
-  sampling_frequency = 2,
-  proportion = 0.25,
-  cull_positive = 0.0,
-  cull_acute = 0.2,
-  cull_chronic = 0.3
+  frequency = 1:4,
+  proportion = seq(0, 1, by=0.1)  # Change to by=0.01 for more precise results
 )
+phase2 |>
+  filter(Prevalence <= 5) |>
+  group_by(Frequency) |>
+  arrange(Proportion) |>
+  slice(1L)
 ```
 
-We can see the interventions using the interventions property:
+NOTE: these are rough numbers - change to by=0.01 for more precise results!
+
+Again, we can plot these results (a different graph is shown here):
 
 ```{r}
-model$interventions
-```
+library("tidyr")
 
-And also they are fairly clear on the graphs:
-
-```{r}
-model$results_long |>
-  ggplot(aes(x=Date, y=Koalas, col=Compartment)) +
+phase2 |>
+  pivot_longer("Prevalence":"Koalas", names_to="Metric", values_to="Value") |>
+  ggplot(aes(x=Proportion, y=Value, col=Frequency)) +
   geom_line() +
-  geom_hline(yintercept=c(300), lty="dotted")
+  facet_wrap(~Metric, ncol=1, scales="free_y") +
+  geom_hline(data=tibble(Metric="Prevalence", ll=5), mapping=aes(yintercept=ll), lty="dashed")
 ```
+
+### Final scenario
+
+Finally, we can update the model for 8 years with a frequency of 2 and proportion of 45% (the minimum required to keep the prevalence under 5%):
 
 ```{r}
-model$results_long |>
-  ggplot(aes(x=Date, y=Percent, col=Compartment)) +
-  geom_line() +
-  geom_hline(yintercept=c(10,30), lty="dotted") +
-  geom_vline(xintercept=as.Date("2022-07-01")+365*c(0,1,3), lty="dashed")
+model$run(8, sampling_frequency = 2, proportion = 0.45)
+model$autoplot() +
+  geom_vline(xintercept=model$run_dates, lty="dashed")
 ```
-
-And in the cumulative number of animals treated/vaccinated:
-
-```{r}
-model$treatments |>
-  ggplot(aes(x=Date, y=Cumulative, col=Type)) +
-  geom_line()
-```
-
 
 
 ## Creating a model object
@@ -166,8 +206,8 @@ For a complete list of valid state and parameter values see the help file for th
 You can also see the current state and parameters using their active bindings:
 
 ```{r}
-model$state
-model$parameters
+model$state |> simplify2array()
+model$parameters |> simplify2array()
 ```
 
 

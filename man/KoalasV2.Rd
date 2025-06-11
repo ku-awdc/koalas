@@ -15,6 +15,8 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 
 \item{\code{N}}{the total number of animals alive (read-only)}
 
+\item{\code{prevalence}}{the current prevalence (read-only)}
+
 \item{\code{state}}{a list representing the current state of the model}
 
 \item{\code{parameters}}{a list of parameter values}
@@ -24,6 +26,8 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \item{\code{results_long}}{a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)}
 
 \item{\code{interventions}}{a data frame of intervention time points from the model (read-only)}
+
+\item{\code{run_dates}}{a date vector of dates when run was called, which might be useful for e.g. adding dashed lines to plots (read-only)}
 
 \item{\code{treatments}}{a data frame of cumulative treatments and vaccinations from the model (read-only)}
 }
@@ -323,15 +327,7 @@ self, invisibly
 \subsection{Method \code{run()}}{
 Run the model for 1 or more years with the standard scenarios
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(
-  years,
-  sampling_frequency,
-  proportion,
-  cull_positive = 0,
-  cull_acute = 0.2,
-  cull_chronic = 0.3,
-  d_time = 1/24
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(years, sampling_frequency, proportion, d_time = 1/24, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -343,13 +339,9 @@ Run the model for 1 or more years with the standard scenarios
 
 \item{\code{proportion}}{the proportion of animals to test/treat/vaccinate at each intervention}
 
-\item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
-
-\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
-
-\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
-
 \item{\code{d_time}}{the desired time step (delta time)}
+
+\item{\code{...}}{additional arguments (cull proportions) passed to the active_intervention method}
 }
 \if{html}{\out{</div>}}
 }
@@ -377,6 +369,7 @@ self, invisibly
 autoplot method for a default plot
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{KoalasV2$autoplot(
+  show_treatments = TRUE,
   prev_line = 5,
   number_line = NULL,
   ymax = c(Treatment = NA_real_, Number = NA_real_, Prevalence = 100),
@@ -390,6 +383,8 @@ autoplot method for a default plot
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
+\item{\code{show_treatments}}{option to show/hide treatments}
+
 \item{\code{prev_line}}{an optional dotted line for target prevalence}
 
 \item{\code{number_line}}{an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size}

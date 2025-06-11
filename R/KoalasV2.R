@@ -354,15 +354,14 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param years the number of years to run for
     #' @param sampling_frequency the number of sampling events per year
     #' @param proportion the proportion of animals to test/treat/vaccinate at each intervention
-    #' @param cull_positive the proportion of test-positive animals that will be culled
-    #' @param cull_acute the proportion of acute diseased animals that will be culled
-    #' @param cull_chronic the proportion of chronic diseased animals that will be culled
     #' @param d_time the desired time step (delta time)
+    #' @param ... additional arguments (cull proportions) passed to the active_intervention method
     #' @return self, invisibly
-    run = function(years, sampling_frequency, proportion, cull_positive = 0.0, cull_acute = 0.2, cull_chronic = 0.3, d_time=1/24){
+    run = function(years, sampling_frequency, proportion, d_time=1/24, ...){
 
       qassert(years, "X1(0,)")
       qassert(sampling_frequency, "X1[0,)")
+      private$.all_run_dates <- c(private$.all_run_dates, self$date)
 
       for(y in seq_len(years)){
 
@@ -380,10 +379,10 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         }else{
           intvl <- floor(diy / sampling_frequency)
           for(s in seq_len(sampling_frequency-1L)){
-            self$active_intervention(proportion=proportion, cull_positive = cull_positive, cull_acute = cull_acute, cull_chronic = cull_chronic)
+            self$active_intervention(proportion=proportion, ...)
             self$update(intvl, d_time=d_time)
           }
-          self$active_intervention(proportion=proportion, cull_positive = cull_positive, cull_acute = cull_acute, cull_chronic = cull_chronic)
+          self$active_intervention(proportion=proportion, ...)
           self$update(diy - (intvl*(sampling_frequency-1L)), d_time=d_time)
         }
       }
@@ -405,6 +404,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @description
     #' autoplot method for a default plot
     #'
+    #' @param show_treatments option to show/hide treatments
     #' @param prev_line an optional dotted line for target prevalence
     #' @param number_line an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size
     #' @param ymax a named numeric vector of maximum values for the y axis
@@ -413,19 +413,22 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param dot_col the colour to use for the dotted prevalence and number lines
     #'
     #' @return a ggplot2 object
-    autoplot = function(prev_line = 5, number_line = NULL, ymax = c(Treatment=NA_real_, Number=NA_real_, Prevalence=100), alphas = c(Treatment=0.25, Number=0.5, Prevalence=0.25), colours = c(Diseased="#F8766D", Infectious="#F9C945", Healthy="#619CFF", Treatment="forestgreen", Prevalence="black"), dot_col="grey50"){
+    autoplot = function(show_treatments = TRUE, prev_line = 5, number_line = NULL, ymax = c(Treatment=NA_real_, Number=NA_real_, Prevalence=100), alphas = c(Treatment=0.25, Number=0.5, Prevalence=0.25), colours = c(Diseased="#F8766D", Infectious="#F9C945", Healthy="#619CFF", Treatment="forestgreen", Prevalence="black"), dot_col="grey50"){
 
       if(is.null(number_line)) number_line <- self$results_long |> filter(Compartment=="Total") |> slice(1L) |> pull(Koalas)
 
-      self$results_long |>
-        filter(.data$Compartment=="Infectious") |>
-        mutate(Subplot = "Prevalence of Infection (%)", Compartment = "Infectious") |>
+      self$results_wide |>
+        select("Date":"Rf") |>
+        mutate(Total = rowSums(across(-c("Date", "Day")))) ->
+        tdata
+
+      tdata |>
+        filter(row_number()<=2L | .data$Total > 0) |> # Remove rows with NA prevalence, but keep first 2 rows to make sure the plot is created
+        mutate(Subplot = "Prevalence of Infection (%)", Compartment = "Infectious", Sum = .data$I+.data$If+.data$Af+.data$Cf, Percent = .data$Sum/.data$Total * 100) |>
         select("Date", "Subplot", "Compartment", "Value"="Percent") ->
         prevdata
 
-      self$results_wide |>
-        select("Date":"Rf") |>
-        mutate(Total = rowSums(across(-c("Date", "Day")))) |>
+      tdata |>
         mutate(Healthy=.data$S+.data$V+.data$N+.data$R+.data$Sf+.data$Vf+.data$Nf+.data$Rf, Infectious=.data$I+.data$If, Diseased=.data$Af+.data$Cf) |>
         select("Date", "Total", "Healthy", "Infectious", "Diseased") |>
         pivot_longer("Healthy":"Diseased", names_to="Compartment", values_to="Koalas") |>
@@ -443,15 +446,26 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         select("Date", "Subplot", "Compartment", "Value"="Cumulative") ->
         treatdata
 
+      lvs <- c(prevdata$Subplot[1], totaldata$Subplot[1], treatdata$Subplot[1])
+      prevdata$Subplot <- fct(prevdata$Subplot, levels=lvs)
+      totaldata$Subplot <- fct(totaldata$Subplot, levels=lvs)
+      treatdata$Subplot <- fct(treatdata$Subplot, levels=lvs)
+
       pt <- ggplot() +
         geom_ribbon(data=prevdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Prevalence"], fill=colours["Prevalence"]) +
-        geom_ribbon(data=treatdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Treatment"], fill=colours["Treatment"]) +
         geom_ribbon(data=totaldata, mapping=aes(x=.data$Date, ymin=.data$Lower, ymax=.data$Cumulative, fill=.data$Compartment), alpha=alphas["Number"]) +
         geom_line(data=prevdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Prevalence"]) +
         geom_line(data=totaldata, mapping=aes(x=.data$Date, y=.data$Cumulative, col=.data$Compartment)) +
-        geom_line(data=treatdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Treatment"]) +
         geom_hline(data=tibble(Subplot = prevdata$Subplot[1], Value = prev_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
-        geom_hline(data=tibble(Subplot = totaldata$Subplot[1], Value = number_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
+        geom_hline(data=tibble(Subplot = totaldata$Subplot[1], Value = number_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col)
+
+      if(show_treatments){
+        pt <- pt +
+          geom_ribbon(data=treatdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Treatment"], fill=colours["Treatment"]) +
+        geom_line(data=treatdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Treatment"])
+      }
+
+      pt <- pt +
         facet_wrap(~.data$Subplot, ncol=1, scales="free_y") +
         xlab(NULL) + ylab(NULL) +
         scale_fill_manual(values=colours) +
@@ -462,7 +476,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
           strip.background = element_rect(fill="grey95"),
           strip.text=element_text(color="black")
         )
-
 
       pt +
         scale_y_facet(
@@ -479,7 +492,6 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         ) ->
         pt
 
-
       return(pt)
     }
 
@@ -491,6 +503,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     .obj = NULL,
     .alpha = rep(NA_integer_, 5L),
     .start_date = as.Date(NA_character_),
+    .all_run_dates = as.Date(character(0)),
     .allres = list(),
     .interventions = tibble(
       Date = as.Date(character(0L)),
@@ -595,12 +608,17 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     #' @field day the current day number of the model (read-only)
     day = function(){
-      private$.obj$vitals[1] |> as.numeric()
+      private$.obj$vitals["Day"] |> as.numeric()
     },
 
     #' @field N the total number of animals alive (read-only)
     N = function(){
-      private$.obj$vitals[2] |> as.numeric()
+      private$.obj$vitals["Alive"] |> as.numeric()
+    },
+
+    #' @field prevalence the current prevalence (read-only)
+    prevalence = function(){
+      as.numeric(private$.obj$vitals["Prevalence"]) * 100
     },
 
     #' @field state a list representing the current state of the model
@@ -645,6 +663,11 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @field interventions a data frame of intervention time points from the model (read-only)
     interventions = function(){
       private$.interventions
+    },
+
+    #' @field run_dates a date vector of dates when run was called, which might be useful for e.g. adding dashed lines to plots (read-only)
+    run_dates = function(){
+      private$.all_run_dates
     },
 
     #' @field treatments a data frame of cumulative treatments and vaccinations from the model (read-only)

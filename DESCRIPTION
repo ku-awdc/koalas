@@ -1,8 +1,8 @@
 Package: koalas
 Title: A Disease Model for Chlamydia in Koalas
 Version: 0.4.1-1
-Date: 2025-06-10
-Description: What the package does (one paragraph).
+Date: 2025-06-11
+Description: The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed!
 Authors@R:
   c(
     person(given="Matt", family="Denwood", email="md@sund.ku.dk", role=c("aut", "cre"))
@@ -29,7 +29,8 @@ Imports:
   IPDMR,
   checkmate,
   Rcpp,
-  R6
+  R6,
+  pbapply
 Suggests: 
   knitr,
   rmarkdown,
