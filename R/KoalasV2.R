@@ -571,6 +571,17 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       stopifnot(state[-14] >= 0, !is.na(state), is.finite(state))
       state <- state[-c(1, 15:18)]
       stopifnot(all.equal(sum(state),0))
+    },
+
+    deep_clone = function(name, value){
+
+      if(name==".obj"){
+        #browser()
+        return(value)
+      }else{
+        return(value)
+      }
+
     }
 
   ),

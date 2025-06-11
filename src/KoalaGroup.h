@@ -1,4 +1,6 @@
 #ifndef KOALA_GROUP_H
+
+
 #define KOALA_GROUP_H
 
 #include <array>
@@ -557,10 +559,10 @@ public:
       m_sumVx = 0.0;
       m_sumRx = 0.0;
       m_sumMx = 0.0;
-      
+
       Rcpp::NumericVector state = get_state();
       rv[ii] = state;
-      ii++;      
+      ii++;
     }
     m_recording = record;
 
@@ -614,6 +616,12 @@ public:
     );
 
     return rv;
+  }
+
+  auto clone() const noexcept(!CTS.debug)
+    -> KoalaGroup<CTS, s_nV, s_nI, s_nN, s_nR, s_nA>
+  {
+    return KoalaGroup<CTS, s_nV, s_nI, s_nN, s_nR, s_nA>(*this);
   }
 
 };
