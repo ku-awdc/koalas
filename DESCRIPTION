@@ -1,7 +1,7 @@
 Package: koalas
 Title: A Disease Model for Chlamydia in Koalas
 Version: 0.4.2-1
-Date: 2025-06-11
+Date: 2025-06-12
 Description: The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed!
 Authors@R:
   c(
