@@ -28,7 +28,7 @@ ggsave("reports/Figure 0.pdf", height=5, width=6)
 
 ## 1. Baseline
 baseline <- model$clone(deep=TRUE)
-baseline$run(10, sampling_frequency=0)
+baseline$run(10, frequency = 0)
 baseline$autoplot() +
   geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
 ggsave("reports/Figure 1.pdf", height=6, width=6)
@@ -43,13 +43,14 @@ phase1 <- assess_interventions(
   model,
   years = 2,
   frequency = 1:4,
-  proportion = seq(0, 1, by=0.01),
+  prop_active = seq(0, 1, by=0.01),
+  prop_targeted = 0,
   cl = 10L  # Note: remove this argument if you see error messages
 )
 phase1 |>
   filter(Prevalence <= 5) |>
   group_by(Frequency) |>
-  arrange(Proportion) |>
+  arrange(PropActive) |>
   slice(1L) ->
   optimums
 optimums
@@ -57,13 +58,13 @@ optimums
 
 phase1 |>
   pivot_longer("Prevalence":"Koalas", names_to="Metric", values_to="Value") |>
-  ggplot(aes(x=Proportion, y=Value, col=Frequency)) +
+  ggplot(aes(x=PropActive, y=Value, col=Frequency)) +
   geom_line() +
   geom_hline(data=tibble(Metric="Prevalence", ll=5), mapping=aes(yintercept=ll), lty="dashed") +
-  geom_vline(data=optimums, mapping=aes(xintercept=Proportion, col=Frequency), lty="dashed") +
+  geom_vline(data=optimums, mapping=aes(xintercept=PropActive, col=Frequency), lty="dashed") +
   facet_wrap(~Metric, ncol=1, scales="free_y") +
   theme(legend.position="right") +
-  ylab(NULL) +
+  ylab(NULL) + xlab("Active Sampling Proportion") +
   theme(
     strip.background = element_rect(fill="grey95"),
     strip.text=element_text(color="black")
@@ -71,20 +72,86 @@ phase1 |>
 ggsave("reports/Figure 2.pdf", height=4, width=6)
 
 
+## 2b. Early phase with targeted interventions
+phase1 <- assess_interventions(
+  model,
+  years = 2,
+  frequency = 1:4,
+  prop_active = seq(0, 1, by=0.01),
+  prop_targeted = c(0,0.25,0.5,0.75),
+  cl = 10L  # Note: remove this argument if you see error messages
+)
+phase1 |>
+  filter(Prevalence <= 5) |>
+  group_by(Frequency, PropTargeted) |>
+  arrange(PropActive) |>
+  slice(1L) ->
+  optimums
+optimums
+
+phase1 |>
+  ggplot(aes(x=PropActive, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  geom_vline(data=optimums, mapping=aes(xintercept=PropActive, col=Frequency), lty="dashed") +
+  facet_wrap(~str_c("Targeted Sampling: ", PropTargeted), ncol=1, scales="free_y") +
+  theme(legend.position="right") +
+  ylab(NULL) + xlab("Active Sampling Proportion") +
+  theme(
+    strip.background = element_rect(fill="grey95"),
+    strip.text=element_text(color="black")
+  ) +
+  ylim(0,100)
+ggsave("reports/Figure 2b.pdf", height=8, width=6)
+
+## 2c. Early phase with only targeted interventions
+phase1 <- assess_interventions(
+  model,
+  years = 2,
+  frequency = 1:4,
+  prop_active = c(0, 0.25, 0.5, 0.75),
+  prop_targeted = seq(0, 1, by=0.01),
+  cl = 10L  # Note: remove this argument if you see error messages
+)
+phase1 |>
+  filter(Prevalence <= 5) |>
+  group_by(Frequency, PropActive) |>
+  arrange(PropTargeted) |>
+  slice(1L) ->
+  optimums
+optimums
+
+phase1 |>
+  ggplot(aes(x=PropTargeted, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  geom_vline(data=optimums, mapping=aes(xintercept=PropTargeted, col=Frequency), lty="dashed") +
+  facet_wrap(~str_c("Active Sampling: ", PropActive), ncol=1, scales="free_y") +
+  theme(legend.position="right") +
+  ylab(NULL) + xlab("Targeted Sampling Proportion") +
+  theme(
+    strip.background = element_rect(fill="grey95"),
+    strip.text=element_text(color="black")
+  ) +
+  ylim(0,100)
+ggsave("reports/Figure 2c.pdf", height=8, width=6)
+
+
 ## 3. Later phase
-model$run(2, sampling_frequency = 4, proportion = 0.47)
+model$run(2, frequency = 4, prop_active = 0.47, prop_targeted = 0.0)
 
 phase2 <- assess_interventions(
   model,
   years = 8,
   frequency = 1:4,
-  proportion = seq(0, 1, by=0.01),
+  prop_active = seq(0, 1, by=0.01),
+  prop_targeted = 0.0,
   cl = 10L  # Note: remove this argument if you see error messages
 )
 phase2 |>
   filter(Prevalence <= 5) |>
   group_by(Frequency) |>
-  arrange(Proportion) |>
+  arrange(PropActive) |>
   slice(1L) ->
   optimums
 optimums
@@ -92,13 +159,13 @@ optimums
 
 phase2 |>
   pivot_longer("Prevalence":"Koalas", names_to="Metric", values_to="Value") |>
-  ggplot(aes(x=Proportion, y=Value, col=Frequency)) +
+  ggplot(aes(x=PropActive, y=Value, col=Frequency)) +
   geom_line() +
   geom_hline(data=tibble(Metric="Prevalence", ll=5), mapping=aes(yintercept=ll), lty="dashed") +
-  geom_vline(data=optimums, mapping=aes(xintercept=Proportion, col=Frequency), lty="dashed") +
+  geom_vline(data=optimums, mapping=aes(xintercept=PropActive, col=Frequency), lty="dashed") +
   facet_wrap(~Metric, ncol=1, scales="free_y") +
   theme(legend.position="right") +
-  ylab(NULL) +
+  ylab(NULL) + xlab("Active Sampling Proportion") +
   theme(
     strip.background = element_rect(fill="grey95"),
     strip.text=element_text(color="black")
@@ -106,8 +173,43 @@ phase2 |>
 ggsave("reports/Figure 3.pdf", height=4, width=6)
 
 
+## 3b. With targeted surveillance
+
+phase2 <- assess_interventions(
+  model,
+  years = 8,
+  frequency = 1:4,
+  prop_active = seq(0, 1, by=0.01),
+  prop_targeted = c(0,0.25,0.5,0.75),
+  cl = 10L  # Note: remove this argument if you see error messages
+)
+phase2 |>
+  filter(Prevalence <= 5) |>
+  group_by(Frequency, PropTargeted) |>
+  arrange(PropActive) |>
+  slice(1L) ->
+  optimums
+optimums
+
+phase2 |>
+  ggplot(aes(x=PropActive, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  geom_vline(data=optimums, mapping=aes(xintercept=PropActive, col=Frequency), lty="dashed") +
+  facet_wrap(~str_c("Targeted Sampling: ", PropTargeted), ncol=1, scales="free_y") +
+  theme(legend.position="right") +
+  ylab(NULL) + xlab("Active Sampling Proportion") +
+  theme(
+    strip.background = element_rect(fill="grey95"),
+    strip.text=element_text(color="black")
+  ) +
+  ylim(0,100)
+ggsave("reports/Figure 3b.pdf", height=8, width=6)
+
+
+
 ## 4. Final scenario
-model$run(8, sampling_frequency = 2, proportion = 0.45)
+model$run(8, frequency = 2, prop_active = 0.45, prop_targeted = 0)
 model$autoplot() +
   geom_vline(xintercept=model$run_dates, lty="dashed")
 ggsave("reports/Figure 4.pdf", height=6, width=6)

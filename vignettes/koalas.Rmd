@@ -19,7 +19,7 @@ options("pboptions" = list(type = "none"))
 
 ## Overview
 
-The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed (contact details are available [here](https://ivh.ku.dk/english/employees/?pure=en/persons/487288) and via my private consultancy company [here](https://www.m2d2consultancy.com)).
+The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed (contact details are available [here](https://ivh.ku.dk/english/employees/?pure=en/persons/487288) and via my private consultancy company [here](http://www.m2d2consultancy.com)).
 
 ## Installation
 
@@ -113,8 +113,7 @@ phase1 |>
   ggplot(aes(x=PropActive, y=Prevalence, col=Frequency)) +
   geom_line() +
   geom_hline(yintercept=5, lty="dashed") +
-  theme(legend.position="bottom") +
-  ylim(0,100)
+  theme(legend.position="bottom")
 ```
 
 We can also look at the final koala populations:
