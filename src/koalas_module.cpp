@@ -43,6 +43,7 @@ RCPP_MODULE(koalas){
 
     .method("update", &KoalaGroupD3::update, "Update method")
     .method("active_intervention", &KoalaGroupD3::active_intervention, "Apply an active sampling intervention")
+    .method("targeted_intervention", &KoalaGroupD3::targeted_intervention, "Apply a targeted sampling intervention")  
 
     .property("vitals", &KoalaGroupD3::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD3::get_state, &KoalaGroupD3::set_state, "Get and set state")
@@ -57,6 +58,7 @@ RCPP_MODULE(koalas){
 
     .method("update", &KoalaGroupD1::update, "Update method")
     .method("active_intervention", &KoalaGroupD1::active_intervention, "Apply an active sampling intervention")
+    .method("targeted_intervention", &KoalaGroupD1::targeted_intervention, "Apply a targeted sampling intervention")
 
     .property("vitals", &KoalaGroupD1::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD1::get_state, &KoalaGroupD1::set_state, "Get and set state")
@@ -71,6 +73,7 @@ RCPP_MODULE(koalas){
 
     .method("update", &KoalaGroupD0::update, "Update method")
     .method("active_intervention", &KoalaGroupD0::active_intervention, "Apply an active sampling intervention")
+    .method("targeted_intervention", &KoalaGroupD0::targeted_intervention, "Apply a targeted sampling intervention")
 
     .property("vitals", &KoalaGroupD0::get_vitals, "Get vitals (yeay/day/alive)")
     .property("state", &KoalaGroupD0::get_state, &KoalaGroupD0::set_state, "Get and set state")

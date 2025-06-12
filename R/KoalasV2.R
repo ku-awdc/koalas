@@ -14,6 +14,7 @@ mlist <- IPDMR:::mlist
 #' @import ggplot2
 #' @import tibble
 #' @import tidyr
+#' @importFrom checkmate qassert assert_number matchArg
 #' @importFrom methods new
 #' @importFrom rlang .data
 #' @importFrom checkmate qassert assert_number assert_date
@@ -313,10 +314,49 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         private$.interventions,
         tibble(
           Date = self$date,
-          SampleProportion = proportion,
+          Type = "Active",
+          PropPositive = proportion,
+          PropAcute = proportion,
+          PropChronic = proportion,
           CullPositive = cull_positive,
-          CullInfected = cull_acute,
-          CullAcute = cull_chronic
+          CullAcute = cull_acute,
+          CullChronic = cull_chronic
+        ))
+
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Implement a (one-time) targeted capture/treatment of diseased animals
+    #'
+    #' @param proportion the proportion of diseased animals to identify and treat (overridden by prop_acute and/or prop_chronic, if set)
+    #' @param prop_acute the proportion of acutely diseased animals to identify and treat (overrides proportion)
+    #' @param prop_chronic the proportion of chronic diseased animals to identify and treat (overrides proportion)
+    #' @param cull_positive this parameter is ignored (it is only provided for compatibility with the run method)
+    #' @param cull_acute the proportion of acute diseased animals that will be culled
+    #' @param cull_chronic the proportion of chronic diseased animals that will be culled
+    targeted_intervention = function(proportion, prop_acute = proportion, prop_chronic = proportion, cull_positive = 0, cull_acute = 0.2, cull_chronic = 0.3){
+
+      qassert(proportion, "N1[0,1]")
+      qassert(cull_positive, "N1[0,1]")
+      qassert(cull_acute, "N1[0,1]")
+      qassert(cull_chronic, "N1[0,1]")
+
+      private$.obj$targeted_intervention(prop_acute, prop_chronic, cull_acute, cull_chronic)
+      private$check_state()
+
+      private$.interventions <- bind_rows(
+        private$.interventions,
+        tibble(
+          Date = self$date,
+          Type = "Targeted",
+          PropPositive = 0,
+          PropAcute = prop_acute,
+          PropChronic = prop_chronic,
+          CullPositive = 0,
+          CullAcute = cull_acute,
+          CullChronic = cull_chronic
         ))
 
       invisible(self)
@@ -352,15 +392,18 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @description
     #' Run the model for 1 or more years with the standard scenarios
     #' @param years the number of years to run for
-    #' @param sampling_frequency the number of sampling events per year
-    #' @param proportion the proportion of animals to test/treat/vaccinate at each intervention
+    #' @param frequency the number of sampling events per year
+    #' @param prop_active the proportion of animals to test/treat/vaccinate with active sampling at each intervention
+    #' @param prop_targeted the proportion of diseased animals to treat with targeted interventions at each intervention
     #' @param d_time the desired time step (delta time)
     #' @param ... additional arguments (cull proportions) passed to the active_intervention method
     #' @return self, invisibly
-    run = function(years, sampling_frequency, proportion, d_time=1/24, ...){
+    run = function(years, frequency, prop_active=0, prop_targeted=0, d_time=1/24, ...){
 
       qassert(years, "X1(0,)")
-      qassert(sampling_frequency, "X1[0,)")
+      qassert(frequency, "X1[0,)")
+      qassert(prop_active, "N1[0,1]")
+      qassert(prop_targeted, "N1[0,1]")
       private$.all_run_dates <- c(private$.all_run_dates, self$date)
 
       for(y in seq_len(years)){
@@ -374,16 +417,18 @@ KoalasV2 <- R6::R6Class("KoalasV2",
           tdt
         diy <- as.numeric(tdt - self$date, units="days")
 
-        if(sampling_frequency == 0L){
+        if(frequency == 0L){
           self$update(diy, d_time=d_time)
         }else{
-          intvl <- floor(diy / sampling_frequency)
-          for(s in seq_len(sampling_frequency-1L)){
-            self$active_intervention(proportion=proportion, ...)
+          intvl <- floor(diy / frequency)
+          for(s in seq_len(frequency-1L)){
+            self$active_intervention(proportion=prop_active, ...)
+            self$targeted_intervention(proportion=prop_targeted, ...)
             self$update(intvl, d_time=d_time)
           }
-          self$active_intervention(proportion=proportion, ...)
-          self$update(diy - (intvl*(sampling_frequency-1L)), d_time=d_time)
+          self$active_intervention(proportion=prop_active, ...)
+          self$targeted_intervention(proportion=prop_targeted, ...)
+          self$update(diy - (intvl*(frequency-1L)), d_time=d_time)
         }
       }
 

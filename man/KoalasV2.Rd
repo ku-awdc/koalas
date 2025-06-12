@@ -41,6 +41,7 @@ This is the "V2" model that has substantial differences to the Grogan et al mode
 \item \href{#method-KoalasV2-set_state}{\code{KoalasV2$set_state()}}
 \item \href{#method-KoalasV2-update}{\code{KoalasV2$update()}}
 \item \href{#method-KoalasV2-active_intervention}{\code{KoalasV2$active_intervention()}}
+\item \href{#method-KoalasV2-targeted_intervention}{\code{KoalasV2$targeted_intervention()}}
 \item \href{#method-KoalasV2-burnin}{\code{KoalasV2$burnin()}}
 \item \href{#method-KoalasV2-run}{\code{KoalasV2$run()}}
 \item \href{#method-KoalasV2-print}{\code{KoalasV2$print()}}
@@ -302,6 +303,40 @@ Implement a (one-time) active sampling/capture/testing of all animals
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-KoalasV2-targeted_intervention"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV2-targeted_intervention}{}}}
+\subsection{Method \code{targeted_intervention()}}{
+Implement a (one-time) targeted capture/treatment of diseased animals
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$targeted_intervention(
+  proportion,
+  prop_acute = proportion,
+  prop_chronic = proportion,
+  cull_positive = 0,
+  cull_acute = 0.2,
+  cull_chronic = 0.3
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{proportion}}{the proportion of diseased animals to identify and treat (overridden by prop_acute and/or prop_chronic, if set)}
+
+\item{\code{prop_acute}}{the proportion of acutely diseased animals to identify and treat (overrides proportion)}
+
+\item{\code{prop_chronic}}{the proportion of chronic diseased animals to identify and treat (overrides proportion)}
+
+\item{\code{cull_positive}}{this parameter is ignored (it is only provided for compatibility with the run method)}
+
+\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
+
+\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-burnin"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-burnin}{}}}
 \subsection{Method \code{burnin()}}{
@@ -327,7 +362,14 @@ self, invisibly
 \subsection{Method \code{run()}}{
 Run the model for 1 or more years with the standard scenarios
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(years, sampling_frequency, proportion, d_time = 1/24, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(
+  years,
+  frequency,
+  prop_active = 0,
+  prop_targeted = 0,
+  d_time = 1/24,
+  ...
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -335,9 +377,11 @@ Run the model for 1 or more years with the standard scenarios
 \describe{
 \item{\code{years}}{the number of years to run for}
 
-\item{\code{sampling_frequency}}{the number of sampling events per year}
+\item{\code{frequency}}{the number of sampling events per year}
 
-\item{\code{proportion}}{the proportion of animals to test/treat/vaccinate at each intervention}
+\item{\code{prop_active}}{the proportion of animals to test/treat/vaccinate with active sampling at each intervention}
+
+\item{\code{prop_targeted}}{the proportion of diseased animals to treat with targeted interventions at each intervention}
 
 \item{\code{d_time}}{the desired time step (delta time)}
 

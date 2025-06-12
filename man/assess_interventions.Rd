@@ -8,7 +8,8 @@ assess_interventions(
   koala_model,
   years,
   frequency = c(1, 2, 3, 4),
-  proportion = seq(0, 1, by = 0.05),
+  prop_active = seq(0, 1, by = 0.05),
+  prop_targeted = 0,
   cl = NULL,
   ...
 )
@@ -20,7 +21,9 @@ assess_interventions(
 
 \item{frequency}{a vector of annual sampling frequencies to test}
 
-\item{proportion}{a vector of sampling proportions to test}
+\item{prop_active}{a vector of the proportion of animals to test/treat/vaccinate with active sampling at each intervention}
+
+\item{prop_targeted}{a vector of the proportion of diseased animals to treat with targeted interventions at each intervention}
 
 \item{cl}{passed to \code{\link[pbapply]{pblapply}} - DO NOT CHANGE THIS ON WINDOWS as it won't properly without shared memory forking}
 

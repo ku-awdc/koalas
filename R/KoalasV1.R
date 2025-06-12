@@ -15,7 +15,7 @@ mlist <- IPDMR:::mlist
 #' @importFrom IPDMR apply_rates
 #' @importFrom stats rmultinom quantile
 #' @import stringr
-#' @importFrom checkmate qassert assert_number
+#' @importFrom checkmate qassert assert_number matchArg
 #'
 #' @export
 KoalasV1 <- R6::R6Class("KoalasV1",

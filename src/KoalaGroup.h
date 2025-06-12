@@ -506,6 +506,8 @@ public:
   [[nodiscard]] auto get_state() const noexcept(!CTS.debug)
     -> Rcpp::NumericVector
   {
+    check_state();
+    
     using namespace Rcpp;
     NumericVector rv = NumericVector::create(
       _["Day"] = static_cast<double>(m_day),
@@ -535,12 +537,36 @@ public:
     noexcept(!CTS.debug)
     -> void
   {
+    check_state();
+    
     // If there are no animals alive then give a warning:
     if ( m_Z < 0.0 ) {
       treat_vacc_all(prop, cull_positive, cull_acute, cull_chronic);
-      update_apply();
     } else {
       Rcpp::warning("Active intervention requested but no animals alive!");
+    }
+  }
+
+  auto targeted_intervention(double const prop_acute, double const prop_chronic, 
+                            double const cull_acute, double const cull_chronic)
+    noexcept(!CTS.debug)
+    -> void
+  {
+    check_state();
+    
+    // If there are no animals alive then give a warning:
+    if ( m_Z < 0.0 ) {
+      
+      // Acute disease:
+      treat_vacc_inf<Status::diseased>(m_Af, m_If, m_Nf, m_Rf, prop_acute, cull_acute, m_cure_A);
+      
+      // Chronic disease:
+      treat_vacc_inf<Status::diseased>(m_Cf, m_If, m_Nf, m_Rf, prop_chronic, cull_chronic, m_cure_C);      
+      
+      update_apply();
+      
+    } else {
+      Rcpp::warning("Targeted intervention requested but no animals alive!");
     }
   }
 
@@ -552,6 +578,8 @@ public:
       if(days <= 0) Rcpp::stop("Invalid days argument");
       if(m_recording && !record) Rcpp::stop("Can't stop recording when already started!");
     }
+    
+    check_state();
 
     int const len = (m_recording ? days : days+1);
     // Rcpp::Rcout << "Updating for " << days << " days (" << len << " rows)\n";
@@ -570,8 +598,6 @@ public:
       ii++;
     }
     m_recording = record;
-
-    check_state();
 
     int newdays = 0;
     while (newdays < days)

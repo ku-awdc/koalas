@@ -19,7 +19,7 @@ options("pboptions" = list(type = "none"))
 
 ## Overview
 
-The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed (contact details are available [here](https://ivh.ku.dk/english/employees/?pure=en/persons/487288)).
+The koalas package is intended to be used for exploring chlamydia control programmes.  The package is still being developed, and feedback is welcomed (contact details are available [here](https://ivh.ku.dk/english/employees/?pure=en/persons/487288) and via my private consultancy company [here](https://www.m2d2consultancy.com)).
 
 ## Installation
 
@@ -73,7 +73,7 @@ For the baseline scenario, we can just clone the model and then run it for a fur
 
 ```{r}
 baseline <- model$clone(deep=TRUE)
-baseline$run(10, sampling_frequency=0)
+baseline$run(10, frequency=0)
 baseline$autoplot() +
   geom_vline(xintercept=baseline$run_dates, lty="dashed")
 ```
@@ -92,14 +92,15 @@ phase1 <- assess_interventions(
   model,
   years = 2,
   frequency = 1:4,
-  proportion = seq(0, 1, by=0.1)  # Change to by=0.01 for more precise results
+  prop_active = seq(0, 1, by=0.1),  # Change to by=0.01 for more precise results
+  prop_targeted = 0.0
 )
 
 library("dplyr")
 phase1 |>
   filter(Prevalence <= 5) |>
   group_by(Frequency) |>
-  arrange(Proportion) |>
+  arrange(PropActive) |>
   slice(1L)
 ```
 
@@ -109,27 +110,65 @@ Then we can plot these results:
 
 ```{r}
 phase1 |>
-  ggplot(aes(x=Proportion, y=Prevalence, col=Frequency)) +
+  ggplot(aes(x=PropActive, y=Prevalence, col=Frequency)) +
   geom_line() +
   geom_hline(yintercept=5, lty="dashed") +
-  theme(legend.position="bottom")
+  theme(legend.position="bottom") +
+  ylim(0,100)
 ```
 
 We can also look at the final koala populations:
 
 ```{r}
 phase1 |>
-  ggplot(aes(x=Proportion, y=Koalas, col=Frequency)) +
+  ggplot(aes(x=PropActive, y=Koalas, col=Frequency)) +
   geom_line() +
   theme(legend.position="bottom")
 ```
+
+Or we can look at the effect of targeted interventions alone:
+
+```{r}
+phase1_targeted <- assess_interventions(
+  model,
+  years = 2,
+  frequency = 1:4,
+  prop_active = 0.0,
+  prop_targeted = seq(0, 1, by=0.1)  # Change to by=0.01 for more precise results
+)
+phase1_targeted |>
+  ggplot(aes(x=PropTargeted, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  theme(legend.position="bottom") +
+  ylim(0,100)
+```
+
+Or we can look at a range of active proportions on top of targeted proportions fixed at 80%:
+
+```{r}
+phase1_both <- assess_interventions(
+  model,
+  years = 2,
+  frequency = 1:4,
+  prop_active = seq(0, 1, by=0.1),  # Change to by=0.01 for more precise results
+  prop_targeted = 0.8
+)
+phase1_both |>
+  ggplot(aes(x=PropActive, y=Prevalence, col=Frequency)) +
+  geom_line() +
+  geom_hline(yintercept=5, lty="dashed") +
+  theme(legend.position="bottom") +
+  ylim(0,100)
+```
+
 
 ### Testing interventions (phase 2)
 
 For phase 2, we first need to update the model using a phase 1 strategy e.g. a frequency of 4 and sampling proportion of 47% (the minimum required to get prevalence under 5% after 2 years):
 
 ```{r}
-model$run(2, sampling_frequency = 4, proportion = 0.47)
+model$run(2, frequency = 4, prop_active = 0.47, prop_targeted = 0.0)
 ```
 
 We can see that this does reduce the prevalence to less than 5%:
@@ -145,12 +184,13 @@ phase2 <- assess_interventions(
   model,
   years = 8,
   frequency = 1:4,
-  proportion = seq(0, 1, by=0.1)  # Change to by=0.01 for more precise results
+  prop_active = seq(0, 1, by=0.1),  # Change to by=0.01 for more precise results
+  prop_targeted = 0.0
 )
 phase2 |>
   filter(Prevalence <= 5) |>
   group_by(Frequency) |>
-  arrange(Proportion) |>
+  arrange(PropActive) |>
   slice(1L)
 ```
 
@@ -163,7 +203,7 @@ library("tidyr")
 
 phase2 |>
   pivot_longer("Prevalence":"Koalas", names_to="Metric", values_to="Value") |>
-  ggplot(aes(x=Proportion, y=Value, col=Frequency)) +
+  ggplot(aes(x=PropActive, y=Value, col=Frequency)) +
   geom_line() +
   facet_wrap(~Metric, ncol=1, scales="free_y") +
   geom_hline(data=tibble(Metric="Prevalence", ll=5), mapping=aes(yintercept=ll), lty="dashed")
@@ -174,7 +214,7 @@ phase2 |>
 Finally, we can update the model for 8 years with a frequency of 2 and proportion of 45% (the minimum required to keep the prevalence under 5%):
 
 ```{r}
-model$run(8, sampling_frequency = 2, proportion = 0.45)
+model$run(8, frequency = 2, prop_active = 0.45)
 model$autoplot() +
   geom_vline(xintercept=model$run_dates, lty="dashed")
 ```
