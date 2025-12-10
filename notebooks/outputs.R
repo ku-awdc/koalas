@@ -10,9 +10,22 @@ theme_set(theme_light())
 # 3. Sensitivity graphs for 8 years
 # 4. 3-row graphs for: initial=4 x ~45%, later=2 x ~40%, 4 dashed lines
 
+subfolder <- "reports/partialvacc/"
+if(!dir.exists(subfolder)) dir.create(subfolder)
+
+## NOTE: when lifespan_natural < Inf vaccination decreases population size
+## R, Rf, V and Vf animals die faster than S and Sf
 
 ## 0. Current prevalence is expected to be around 65%
 model <- KoalasV2$new()
+model$set_state(S=300, V=0)
+model$set_parameters(vaccine_efficacy=0, vaccine_booster=0, lifespan_natural=6, passive_intervention_rate=0, birthrate=0)
+sum(unlist(model$state[1:12]))
+model$run(10, frequency = 0)
+sum(unlist(model$state[1:12]))
+
+model$parameters
+model$set_parameters(vaccine_efficacy=0, vaccine_booster=0, lifespan_natural=Inf)
 model$burnin()
 model$results_long |> filter(Date=="2025-07-01")
 model$results_long |>
@@ -24,14 +37,15 @@ model$results_long |>
   ylim(0,100) +
   ylab("Prevalence")
 # We also hit the targets of 10% and 30% as expected
-ggsave("reports/Figure 0.pdf", height=5, width=6)
+ggsave(file.path(subfolder, "Figure 0.pdf"), height=5, width=6)
+
 
 ## 1. Baseline
 baseline <- model$clone(deep=TRUE)
 baseline$run(10, frequency = 0)
 baseline$autoplot() +
   geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
-ggsave("reports/Figure 1.pdf", height=6, width=6)
+ggsave(file.path(subfolder, "Figure 1.pdf"), height=6, width=6)
 
 # Or maybe:
 baseline$autoplot(show_treatments=FALSE) +
@@ -69,7 +83,7 @@ phase1 |>
     strip.background = element_rect(fill="grey95"),
     strip.text=element_text(color="black")
   )
-ggsave("reports/Figure 2.pdf", height=4, width=6)
+ggsave(file.path(subfolder, "Figure 2.pdf"), height=4, width=6)
 
 
 ## 2b. Early phase with targeted interventions
@@ -102,7 +116,7 @@ phase1 |>
     strip.text=element_text(color="black")
   ) +
   ylim(0,100)
-ggsave("reports/Figure 2b.pdf", height=8, width=6)
+ggsave(file.path(subfolder, "Figure 2b.pdf"), height=8, width=6)
 
 ## 2c. Early phase with only targeted interventions
 phase1 <- assess_interventions(
@@ -134,7 +148,7 @@ phase1 |>
     strip.text=element_text(color="black")
   ) +
   ylim(0,100)
-ggsave("reports/Figure 2c.pdf", height=8, width=6)
+ggsave(file.path(subfolder, "Figure 2c.pdf"), height=8, width=6)
 
 
 ## 3. Later phase
@@ -170,7 +184,7 @@ phase2 |>
     strip.background = element_rect(fill="grey95"),
     strip.text=element_text(color="black")
   )
-ggsave("reports/Figure 3.pdf", height=4, width=6)
+ggsave(file.path(subfolder, "Figure 3.pdf"), height=4, width=6)
 
 
 ## 3b. With targeted surveillance
@@ -204,7 +218,7 @@ phase2 |>
     strip.text=element_text(color="black")
   ) +
   ylim(0,100)
-ggsave("reports/Figure 3b.pdf", height=8, width=6)
+ggsave(file.path(subfolder, "Figure 3b.pdf"), height=8, width=6)
 
 
 
@@ -212,4 +226,4 @@ ggsave("reports/Figure 3b.pdf", height=8, width=6)
 model$run(8, frequency = 2, prop_active = 0.45, prop_targeted = 0)
 model$autoplot() +
   geom_vline(xintercept=model$run_dates, lty="dashed")
-ggsave("reports/Figure 4.pdf", height=6, width=6)
+ggsave(file.path(subfolder, "Figure 4.pdf"), height=6, width=6)

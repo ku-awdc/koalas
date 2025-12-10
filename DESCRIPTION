@@ -10,7 +10,7 @@ Authors@R:
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Depends:
   R (>= 4.1.0)
 LinkingTo:
@@ -37,7 +37,7 @@ Suggests:
   spelling,
   testthat (>= 3.0.0)
 Additional_repositories: https://ku-awdc.r-universe.dev/
-NeedsCompilation:  yes
+NeedsCompilation: yes
 SystemRequirements: C++20
 Config/testthat/edition: 3
 VignetteBuilder: knitr

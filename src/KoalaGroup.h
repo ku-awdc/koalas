@@ -498,7 +498,7 @@ public:
     m_sumRx = state["SumRx"];
     m_sumMx = state["SumMx"];
 
-    m_Z = -(m_S+m_V+m_I+m_N+m_R+m_Af+m_Cf+m_Vf+m_If+m_Nf+m_Rf);
+    m_Z = -(m_S+m_V+m_I+m_N+m_R+m_Af+m_Cf+m_Sf+m_Vf+m_If+m_Nf+m_Rf);
     check_state();
 
   }

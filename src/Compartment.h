@@ -105,7 +105,7 @@ public:
   [[nodiscard]] auto take_rate(double const rate, double const d_time) noexcept(!CTS.debug)
     -> double
   {
-    double const prop = 1.0 - std::exp(-rate * s_ncomps * d_time);
+    double const prop = 1.0 - std::exp(-rate * d_time); //std::exp(-rate * s_ncomps * d_time);
     double const rv = take_prop(prop);
     return rv;
   }
