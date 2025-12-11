@@ -10,22 +10,13 @@ theme_set(theme_light())
 # 3. Sensitivity graphs for 8 years
 # 4. 3-row graphs for: initial=4 x ~45%, later=2 x ~40%, 4 dashed lines
 
-subfolder <- "reports/partialvacc/"
+## Note: we were previously over-estimating mortality by 3x for V/N/I/R/A compartments
+subfolder <- "reports/updated/"
 if(!dir.exists(subfolder)) dir.create(subfolder)
-
-## NOTE: when lifespan_natural < Inf vaccination decreases population size
-## R, Rf, V and Vf animals die faster than S and Sf
 
 ## 0. Current prevalence is expected to be around 65%
 model <- KoalasV2$new()
-model$set_state(S=300, V=0)
-model$set_parameters(vaccine_efficacy=0, vaccine_booster=0, lifespan_natural=6, passive_intervention_rate=0, birthrate=0)
-sum(unlist(model$state[1:12]))
-model$run(10, frequency = 0)
-sum(unlist(model$state[1:12]))
-
 model$parameters
-model$set_parameters(vaccine_efficacy=0, vaccine_booster=0, lifespan_natural=Inf)
 model$burnin()
 model$results_long |> filter(Date=="2025-07-01")
 model$results_long |>
