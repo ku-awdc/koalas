@@ -11,12 +11,19 @@ theme_set(theme_light())
 # 4. 3-row graphs for: initial=4 x ~45%, later=2 x ~40%, 4 dashed lines
 
 ## Note: we were previously over-estimating mortality by 3x for V/N/I/R/A compartments
-subfolder <- "reports/updated/"
+nn <- "novacc"
+subfolder <- file.path("reports",nn)
 if(!dir.exists(subfolder)) dir.create(subfolder)
 
 ## 0. Current prevalence is expected to be around 65%
 model <- KoalasV2$new()
-model$parameters
+#model$parameters
+
+## Remove vaccination effect:
+if(nn=="novacc"){
+  model$set_parameters(vaccine_efficacy=0, vaccine_booster=0)
+}
+
 model$burnin()
 model$results_long |> filter(Date=="2025-07-01")
 model$results_long |>
@@ -218,3 +225,10 @@ model$run(8, frequency = 2, prop_active = 0.45, prop_targeted = 0)
 model$autoplot() +
   geom_vline(xintercept=model$run_dates, lty="dashed")
 ggsave(file.path(subfolder, "Figure 4.pdf"), height=6, width=6)
+
+ff <- str_c("Figure ", c("0","1","2","2b","2c","3","3b","4"), ".pdf")
+(cmd <- str_c("gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=", file.path(subfolder,str_c(nn,".pdf")), " ", str_c("'", file.path(subfolder,ff), "'", collapse=" ")))
+system(cmd)
+
+# gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=out.pdf in1.pdf in2.pdf
+

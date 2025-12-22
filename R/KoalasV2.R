@@ -371,8 +371,8 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       stopifnot(self$day == 0L)
 
       prev <- 0.05
-      N <- 270
-      days <- 175
+      N <- 275
+      days <- 160
 
       state <- do.call(self$set_state, args=private$default_state() |> as.list())
       self$set_state(S=N*(1-prev), I=N*prev)
@@ -515,7 +515,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         xlab(NULL) + ylab(NULL) +
         scale_fill_manual(values=colours) +
         scale_color_manual(values=colours) +
-        guides(fill = guide_legend(reverse = TRUE, title=element_blank()), color = "none") +
+        guides(fill = guide_legend(reverse = TRUE, title=NULL), color = "none") +
         theme_light() +
         theme(
           strip.background = element_rect(fill="grey95"),
@@ -563,7 +563,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.35,3), #4
+        beta = rep(2.55,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.35, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7

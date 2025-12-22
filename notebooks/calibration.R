@@ -52,16 +52,16 @@ model$results_wide |>
 ## Calibration of beta and burnin phase starting at 5% and ending at 10% with 300 koalas then 30% 1 year later
 model <- KoalasV2$new()
 prev <- 0.05
-N <- 270
+N <- 275
 model$set_state(
   S = N * (1.0-prev),
   I = N * prev
 )
 model$set_parameters(
   subclinical_recover_proportion = 0.35,
-  beta = 2.35
+  beta = 2.55
 )
-dd <- 175
+dd <- 160
 model$update(dd+400)
 
 model$results_long |>
