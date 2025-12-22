@@ -36,7 +36,7 @@ model$set_parameters(
 
 model$set_parameters(
   acute_duration = 0.40,
-  lifespan_acute = 4.0
+  lifespan_acute = 1.4
 )
 model$update(1*400)
 model$results_wide |> slice(360:370)
@@ -52,14 +52,14 @@ model$results_wide |>
 ## Calibration of beta and burnin phase starting at 5% and ending at 10% with 300 koalas then 30% 1 year later
 model <- KoalasV2$new()
 prev <- 0.05
-N <- 275
+N <- 270
 model$set_state(
   S = N * (1.0-prev),
   I = N * prev
 )
 model$set_parameters(
   subclinical_recover_proportion = 0.35,
-  beta = 2.75
+  beta = 2.35
 )
 dd <- 175
 model$update(dd+400)

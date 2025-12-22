@@ -371,7 +371,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       stopifnot(self$day == 0L)
 
       prev <- 0.05
-      N <- 275
+      N <- 270
       days <- 175
 
       state <- do.call(self$set_state, args=private$default_state() |> as.list())
@@ -563,7 +563,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.75,3), #4
+        beta = rep(2.35,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.35, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7
@@ -571,7 +571,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         acute_duration = c(0.4, NA_real_, NA_real_), #9 - 99% progress to Dead/Cf within 1 year (with alpha=3)
         lifespan_natural = c(6.0, 3.0, 12.0), #10
         lifespan_chronic = c(4.8, NA_real_, NA_real_), #11
-        lifespan_acute = c(4.0, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated for alpha=3 and acute_duration = 0.4)
+        lifespan_acute = c(1.4, NA_real_, NA_real_), #11 - 25% die before they reach C - i.e. relative to #9 (hand-calibrated for alpha=3 and acute_duration = 0.4)
         relative_fecundity = c(0.0, 0.0, 0.1), #12 - ignoring males
 
         sensitivity = c(0.95, 0.90, 1.0),
