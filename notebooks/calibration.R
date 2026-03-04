@@ -97,7 +97,6 @@ model$set_state(
 model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4,
-  subclinical_recover_proportion = 0.35,
   beta = 2.64
 )
 
@@ -142,7 +141,6 @@ model$set_state(
 model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4,
-  subclinical_recover_proportion = 0.35,
   beta = 2.64
 )
 model$update(365*5)

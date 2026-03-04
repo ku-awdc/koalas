@@ -41,7 +41,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
     #' @param start_date the date corresponding to day 0 of the simulation (only used for outputs)
     #'
     #' @return A new within-group model object
-    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list(), start_date = "2022-01-01"){
+    initialize = function(num = 3L, num_V = num, num_I = num, num_N = num, num_R = num, num_A = num, parameters = list(), state = list(), start_date = "2021-01-01"){
 
       qassert(num_V, "X1(0,)")
       qassert(num_I, "X1(0,)")
@@ -364,22 +364,43 @@ KoalasV2 <- R6::R6Class("KoalasV2",
 
     #' @description
     #' Set and burn-in the model for standard scenarios (with current parameters)
+    #' @param scenario the desired population scenario for calibration (worst case, best case, or combined)
     #' @param d_time the desired time step (delta time)
     #' @return self, invisibly
-    burnin = function(d_time=1/24){
+    burnin = function(scenario=c("worst","best","combined"), d_time=1/24){
 
+      scenario <- match.arg(scenario)
       stopifnot(self$day == 0L)
 
-      prev <- 0.05
-      N <- 275
-      days <- 160
-
       state <- do.call(self$set_state, args=private$default_state() |> as.list())
-      self$set_state(S=N*(1-prev), I=N*prev)
 
-      private$.start_date <- as.Date("2022-07-01") - days
+      if(scenario=="worst"){
+        prev <- 0.009
+        N <- 220
+      }else if(scenario=="best"){
+        prev <- 0.009
+        N <- 61
+      }else if(scenario=="combined"){
+        prev <- 0.01
+        N <- 305
+        self$set_parameters(
+          acute_duration = 0.5,  # 0.4
+          lifespan_acute = 0.5,  # 1.4
+          lifespan_natural = 6,  # 6
+          lifespan_chronic = 1.5,  # 4.8
+          birthrate = 0.17,  # 0.38
+          subclinical_recover_proportion = 0,  # 0.35
+          beta = 2.23  # 2.64
+        )
+      }else{
+        stop("Unrecognised scenario")
+      }
+
+      self$set_state(S=N*(1-prev), I=N*prev)
+      private$.start_date <- as.Date("2021-01-01")
 
       ## Do the burnin:
+      days <- as.numeric(as.Date("2022-07-01")-as.Date("2021-01-01"), units="days")
       self$update(n_days = days, d_time=d_time, record=FALSE)
 
       ## Then get us to 1st October 2025:
@@ -500,9 +521,9 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         geom_ribbon(data=prevdata, mapping=aes(x=.data$Date, ymin=0, ymax=.data$Value), alpha=alphas["Prevalence"], fill=colours["Prevalence"]) +
         geom_ribbon(data=totaldata, mapping=aes(x=.data$Date, ymin=.data$Lower, ymax=.data$Cumulative, fill=.data$Compartment), alpha=alphas["Number"]) +
         geom_line(data=prevdata, mapping=aes(x=.data$Date, y=.data$Value), col=colours["Prevalence"]) +
-        geom_line(data=totaldata, mapping=aes(x=.data$Date, y=.data$Cumulative, col=.data$Compartment)) +
-        geom_hline(data=tibble(Subplot = prevdata$Subplot[1], Value = prev_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
-        geom_hline(data=tibble(Subplot = totaldata$Subplot[1], Value = number_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col)
+        geom_line(data=totaldata, mapping=aes(x=.data$Date, y=.data$Cumulative, col=.data$Compartment))# +
+        #geom_hline(data=tibble(Subplot = prevdata$Subplot[1], Value = prev_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col) +
+        #geom_hline(data=tibble(Subplot = totaldata$Subplot[1], Value = number_line), mapping=aes(yintercept=Value), lty="dotted", col=dot_col)
 
       if(show_treatments){
         pt <- pt +
@@ -563,7 +584,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.55,3), #4
+        beta = rep(2.64,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.35, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7

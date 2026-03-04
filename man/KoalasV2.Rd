@@ -64,7 +64,7 @@ Create a new single-group koala model
   num_A = num,
   parameters = list(),
   state = list(),
-  start_date = "2022-01-01"
+  start_date = "2021-01-01"
 )}\if{html}{\out{</div>}}
 }
 
@@ -342,12 +342,14 @@ Implement a (one-time) targeted capture/treatment of diseased animals
 \subsection{Method \code{burnin()}}{
 Set and burn-in the model for standard scenarios (with current parameters)
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$burnin(d_time = 1/24)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$burnin(scenario = c("worst", "best", "combined"), d_time = 1/24)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
+\item{\code{scenario}}{the desired population scenario for calibration (worst case, best case, or combined)}
+
 \item{\code{d_time}}{the desired time step (delta time)}
 }
 \if{html}{\out{</div>}}

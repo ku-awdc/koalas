@@ -11,7 +11,11 @@ theme_set(theme_light())
 # 4. 3-row graphs for: initial=4 x ~45%, later=2 x ~40%, 4 dashed lines
 
 ## Note: we were previously over-estimating mortality by 3x for V/N/I/R/A compartments
-nn <- "novacc"
+scenario <- "worst"
+scenario <- "best"
+scenario <- "combined"
+
+nn <- str_c("secnario_", scenario)
 subfolder <- file.path("reports",nn)
 if(!dir.exists(subfolder)) dir.create(subfolder)
 
@@ -24,14 +28,14 @@ if(nn=="novacc"){
   model$set_parameters(vaccine_efficacy=0, vaccine_booster=0)
 }
 
-model$burnin()
+model$burnin(scenario=scenario)
 model$results_long |> filter(Date=="2025-07-01")
 model$results_long |>
   filter(Compartment == "Infectious") |>
   ggplot(aes(x=Date, y=Percent)) +
   geom_line() +
-  geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed") +
-  geom_hline(yintercept=c(10,30,65), lty="dotted") +
+#  geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed") +
+#  geom_hline(yintercept=c(10,30,65), lty="dotted") +
   ylim(0,100) +
   ylab("Prevalence")
 # We also hit the targets of 10% and 30% as expected
@@ -41,8 +45,7 @@ ggsave(file.path(subfolder, "Figure 0.pdf"), height=5, width=6)
 ## 1. Baseline
 baseline <- model$clone(deep=TRUE)
 baseline$run(10, frequency = 0)
-baseline$autoplot() +
-  geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
+baseline$autoplot() #+ geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
 ggsave(file.path(subfolder, "Figure 1.pdf"), height=6, width=6)
 
 # Or maybe:
@@ -222,8 +225,7 @@ ggsave(file.path(subfolder, "Figure 3b.pdf"), height=8, width=6)
 
 ## 4. Final scenario
 model$run(8, frequency = 2, prop_active = 0.45, prop_targeted = 0)
-model$autoplot() +
-  geom_vline(xintercept=model$run_dates, lty="dashed")
+model$autoplot() + geom_vline(xintercept=model$run_dates, lty="dashed")
 ggsave(file.path(subfolder, "Figure 4.pdf"), height=6, width=6)
 
 ff <- str_c("Figure ", c("0","1","2","2b","2c","3","3b","4"), ".pdf")
