@@ -35,6 +35,10 @@ model$set_parameters(
 )
 
 model$set_parameters(
+  acute_duration = 0.5,
+  lifespan_acute = 0.5
+)
+model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4
 )
@@ -48,37 +52,179 @@ model$results_wide |>
   geom_vline(xintercept=365, lty="dashed")
 
 
+## Population:
+tribble(
+  ~Date, ~Outcome, ~Source, ~LCI, ~UCI,
+  "2022-07-01", 300, "Chad", 281, 569,
+  "2025-07-01", 107, "Lachlan", 95, 123,
+) |>
+  mutate(Date = as_date(Date)) |>
+  mutate(Compartment = "Total Koalas (N)") |>
+  identity() ->
+  population
 
-## Calibration of beta and burnin phase starting at 5% and ending at 10% with 300 koalas then 30% 1 year later
-model <- KoalasV2$new()
-prev <- 0.05
-N <- 275
+## Prevalence:
+tribble(
+  ~Date, ~Positive, ~Total, ~Source,
+  "2022-07-01", 2, 18, "Swab",
+  "2022-11-01", 4, 17, "Swab",
+  "2023-02-01", 5, 16, "Swab",
+  "2023-07-01", 3, 13, "Swab",
+  "2023-10-01", 4, 10, "Swab",
+  "2021-07-01", 5, 11, "Scat",
+  "2023-07-01", 10, 14, "Scat",
+  "2025-07-01", 2, 16, "Scat",
+) |>
+  mutate(Date = as_date(Date), Outcome = Positive/Total*100) |>
+  mutate(LCI = 100*qbeta(0.025, Positive+1, (Total-Positive)+1)) |>
+  mutate(UCI = 100*qbeta(0.975, Positive+1, (Total-Positive)+1)) |>
+  mutate(Compartment = "Prevalence (%)") |>
+  identity() ->
+  prevalence
+
+
+pdf("calibration.pdf", width=7, height=5)
+
+## Calibration for worst case scenario:
+model <- KoalasV2$new(start_date = "2021-01-01")
+
+prev <- 0.009
+N <- 220
 model$set_state(
   S = N * (1.0-prev),
   I = N * prev
 )
 model$set_parameters(
+  acute_duration = 0.40,
+  lifespan_acute = 1.4,
   subclinical_recover_proportion = 0.35,
-  beta = 2.55
+  beta = 2.64
 )
-dd <- 160
-model$update(dd+400)
+
+model$update(365*5)
+model$results_long |> filter(Date=="2022-07-01", Compartment=="Total") |> pull(Koalas)
+population |> filter(Date=="2022-07-01")
 
 model$results_long |>
-  mutate(Day = as.numeric(Date - min(Date), units="days")) |>
-  ggplot(aes(x=Day, y=Percent, col=Compartment)) +
+  filter(Compartment %in% c("Infectious","Total")) |>
+  mutate(Outcome = case_when(
+    Compartment=="Total" ~ Koalas,
+    .default = Percent
+  ), Source = "Model") |>
+  mutate(Compartment = case_when(
+    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Total" ~ "Total Koalas (N)",
+  )) |>
+  ggplot(aes(x=Date, y=Outcome)) +
   geom_line() +
-  geom_hline(yintercept=c(10,30), lty="dotted") +
-  geom_vline(xintercept=c(dd,dd+365), lty="dashed") +
-  labs(title=model$parameters$subclinical_recover_proportion)
+  facet_wrap(~Compartment, scales="free_y", nrow=2) +
+  geom_point(mapping=aes(col=Source),
+    data = bind_rows(prevalence, population),
+    size = 2.5
+  ) +
+  geom_errorbar(mapping=aes(ymin=LCI, ymax=UCI, col=Source),
+    data=bind_rows(prevalence, population),
+    lty="dashed", width=75
+  ) +
+  ylim(c(0,NA)) +
+  ylab(NULL) + xlab(NULL) +
+  ggtitle(label="Worst case scenario")
+
+
+## Calibration for best case scenario:
+model <- KoalasV2$new(start_date="2021-01-01")
+prev <- 0.009
+N <- 61
+model$set_state(
+  S = N * (1.0-prev),
+  I = N * prev
+)
+model$set_parameters(
+  acute_duration = 0.40,
+  lifespan_acute = 1.4,
+  subclinical_recover_proportion = 0.35,
+  beta = 2.64
+)
+model$update(365*5)
+
+model$results_long |> filter(Date=="2025-07-01", Compartment=="Total") |> pull(Koalas)
+population |> filter(Date=="2025-07-01")
 
 model$results_long |>
+  filter(Compartment %in% c("Infectious","Total")) |>
+  mutate(Outcome = case_when(
+    Compartment=="Total" ~ Koalas,
+    .default = Percent
+  ), Source = "Model") |>
+  mutate(Compartment = case_when(
+    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Total" ~ "Total Koalas (N)",
+  )) |>
+  ggplot(aes(x=Date, y=Outcome)) +
+  geom_line() +
+  facet_wrap(~Compartment, scales="free_y", nrow=2) +
+  geom_point(mapping=aes(col=Source),
+    data = bind_rows(prevalence, population),
+    size = 2.5
+  ) +
+  geom_errorbar(mapping=aes(ymin=LCI, ymax=UCI, col=Source),
+    data=bind_rows(prevalence, population),
+    lty="dashed", width=75
+  ) +
+  ylim(c(0,NA)) +
+  ylab(NULL) + xlab(NULL) +
+  ggtitle(label="Best case scenario")
+
+
+## Calibration for hitting both (combined scenario):
+model <- KoalasV2$new(start_date="2021-01-01")
+prev <- 0.01
+N <- 305
+model$set_state(
+  S = N * (1.0-prev),
+  I = N * prev
+)
+model$set_parameters(
+  acute_duration = 0.5,  # 0.4
+  lifespan_acute = 0.5,  # 1.4
+  lifespan_natural = 6,  # 6
+  lifespan_chronic = 1.5,  # 4.8
+  birthrate = 0.17,  # 0.38
+  subclinical_recover_proportion = 0,  # 0.35
+  beta = 2.23  # 2.64
+)
+model$update(365*5)
+
+model$results_long |>
+  inner_join(population |> select(Date, Outcome),
+    join_by(Date)) |>
   filter(Compartment=="Total") |>
-  mutate(Day = as.numeric(Date - min(Date), units="days")) |>
-  ggplot(aes(x=Day, y=Koalas, col=Compartment)) +
+  mutate(Diff = Outcome-Koalas) |>
+  pull(Diff)
+
+model$results_long |>
+  filter(Compartment %in% c("Infectious","Total")) |>
+  mutate(Outcome = case_when(
+    Compartment=="Total" ~ Koalas,
+    .default = Percent
+  ), Source = "Model") |>
+  mutate(Compartment = case_when(
+    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Total" ~ "Total Koalas (N)",
+  )) |>
+  ggplot(aes(x=Date, y=Outcome)) +
   geom_line() +
-  geom_hline(yintercept=c(300), lty="dotted") +
-  geom_vline(xintercept=c(dd), lty="dashed") +
-  labs(title=model$parameters$subclinical_recover_proportion)
+  facet_wrap(~Compartment, scales="free_y", nrow=2) +
+  geom_point(mapping=aes(col=Source),
+    data = bind_rows(prevalence, population),
+    size = 2.5
+  ) +
+  geom_errorbar(mapping=aes(ymin=LCI, ymax=UCI, col=Source),
+    data=bind_rows(prevalence, population),
+    lty="dashed", width=75
+  ) +
+  ylim(c(0,NA)) +
+  ylab(NULL) + xlab(NULL) +
+  ggtitle(label="Combined scenario")
 
-
+dev.off()
