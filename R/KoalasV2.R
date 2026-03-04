@@ -381,7 +381,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         prev <- 0.009
         N <- 61
       }else if(scenario=="combined"){
-        prev <- 0.01
+        prev <- 0.011
         N <- 305
         self$set_parameters(
           acute_duration = 0.5,  # 0.4
@@ -390,7 +390,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
           lifespan_chronic = 1.5,  # 4.8
           birthrate = 0.17,  # 0.38
           subclinical_recover_proportion = 0,  # 0.35
-          beta = 2.23  # 2.64
+          beta = 2.22  # 2.64
         )
       }else{
         stop("Unrecognised scenario")
@@ -584,7 +584,7 @@ KoalasV2 <- R6::R6Class("KoalasV2",
         vacc_immune_duration = c(1.0, 0.3, 1.5),  #1
         vacc_redshed_duration = c(0.5, 0.1, 1.0), #2 - RELATIVE TO #1
         natural_immune_duration = c(1.0, 1.0, 1.0), #3 - RELATIVE TO #1
-        beta = rep(2.64,3), #4
+        beta = rep(2.69,3), #4
         subcinical_duration = c(0.5, 0.1, 1.0), #5
         subclinical_recover_proportion = c(0.35, NA_real_, NA_real_),  #6
         diseased_recover_proportion = c(0.0, 0.0, 0.0),  #7

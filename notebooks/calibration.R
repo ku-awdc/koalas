@@ -83,6 +83,8 @@ tribble(
   prevalence
 
 
+sensitivity <- KoalasV2$new()$parameters$sensitivity
+
 pdf("calibration.pdf", width=7, height=5)
 
 ## Calibration for worst case scenario:
@@ -97,7 +99,7 @@ model$set_state(
 model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4,
-  beta = 2.64
+  beta = 2.69
 )
 
 model$update(365*5)
@@ -108,7 +110,7 @@ model$results_long |>
   filter(Compartment %in% c("Infectious","Total")) |>
   mutate(Outcome = case_when(
     Compartment=="Total" ~ Koalas,
-    .default = Percent
+    .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
     Compartment=="Infectious" ~ "Prevalence (%)",
@@ -141,7 +143,7 @@ model$set_state(
 model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4,
-  beta = 2.64
+  beta = 2.69
 )
 model$update(365*5)
 
@@ -152,7 +154,7 @@ model$results_long |>
   filter(Compartment %in% c("Infectious","Total")) |>
   mutate(Outcome = case_when(
     Compartment=="Total" ~ Koalas,
-    .default = Percent
+    .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
     Compartment=="Infectious" ~ "Prevalence (%)",
@@ -176,7 +178,7 @@ model$results_long |>
 
 ## Calibration for hitting both (combined scenario):
 model <- KoalasV2$new(start_date="2021-01-01")
-prev <- 0.01
+prev <- 0.011
 N <- 305
 model$set_state(
   S = N * (1.0-prev),
@@ -189,7 +191,7 @@ model$set_parameters(
   lifespan_chronic = 1.5,  # 4.8
   birthrate = 0.17,  # 0.38
   subclinical_recover_proportion = 0,  # 0.35
-  beta = 2.23  # 2.64
+  beta = 2.22  # 2.64
 )
 model$update(365*5)
 
@@ -204,7 +206,7 @@ model$results_long |>
   filter(Compartment %in% c("Infectious","Total")) |>
   mutate(Outcome = case_when(
     Compartment=="Total" ~ Koalas,
-    .default = Percent
+    .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
     Compartment=="Infectious" ~ "Prevalence (%)",
