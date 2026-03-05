@@ -2,7 +2,41 @@
 
 library("koalas")
 library("tidyverse")
+library("lubridate")
 theme_set(theme_light())
+
+
+## Observed population numbers:
+tribble(
+  ~Date, ~Outcome, ~Source, ~LCI, ~UCI,
+  "2022-07-01", 300, "Chad", 281, 569,
+  "2025-07-01", 107, "Lachlan", 95, 123,
+) |>
+  mutate(Date = as_date(Date)) |>
+  mutate(Compartment = "Total Koalas (N)") |>
+  identity() ->
+  population
+
+## Observed prevalence estimates:
+tribble(
+  ~Date, ~Positive, ~Total, ~Source,
+  "2022-07-01", 2, 18, "Swab",
+  "2022-11-01", 4, 17, "Swab",
+  "2023-02-01", 5, 16, "Swab",
+  "2023-07-01", 3, 13, "Swab",
+  "2023-10-01", 4, 10, "Swab",
+  "2021-07-01", 5, 11, "Scat",
+  "2023-07-01", 10, 14, "Scat",
+  "2025-07-01", 2, 16, "Scat",
+) |>
+  filter(Source=="Swab") |>
+  mutate(Date = as_date(Date), Outcome = (1/0.95)*Positive/Total*100) |>
+  mutate(LCI = 100*(1/0.95)*qbeta(0.025, Positive+1, (Total-Positive)+1)) |>
+  mutate(UCI = 100*(1/0.95)*qbeta(0.975, Positive+1, (Total-Positive)+1)) |>
+  mutate(Compartment = "Observed Prevalence (%)", Percent=Outcome) |>
+  identity() ->
+  prevalence
+
 
 ## Outputs
 # 1. Baseline from July 2022 to October 2035, plus dotted line for 2022+2023, 3 dashed lines
@@ -13,7 +47,25 @@ theme_set(theme_light())
 ## Note: we were previously over-estimating mortality by 3x for V/N/I/R/A compartments
 scenario <- "worst"
 scenario <- "best"
-scenario <- "combined"
+#scenario <- "combined"
+
+with_obs <- TRUE
+with_ci <- TRUE
+
+if(scenario=="worst"){
+  pop <- population |> filter(Source=="Chad")
+}else if(scenario=="best"){
+  pop <- population |> filter(Source=="Lachlan")
+}else{
+  pop <- population
+}
+
+prevalence <- prevalence |> mutate(Subplot = "Prevalence of Infection (%)")
+pop <- pop |> mutate(Subplot = "Number of Koalas")
+
+months <- as_date("2022-07-01") + months(0:(12*4))
+quarters <- as_date("2022-07-01") + months(0:(12*4/3)*3)
+years <- as_date("2022-01-01") + years(0:15)
 
 nn <- str_c("secnario_", scenario)
 subfolder <- file.path("reports",nn)
@@ -34,18 +86,46 @@ model$results_long |>
   filter(Compartment == "Infectious") |>
   ggplot(aes(x=Date, y=Percent)) +
   geom_line() +
-#  geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed") +
+  geom_vline(xintercept=as.Date(c("2026-06-01")), lty="dashed") +
 #  geom_hline(yintercept=c(10,30,65), lty="dotted") +
   ylim(0,100) +
-  ylab("Prevalence")
-# We also hit the targets of 10% and 30% as expected
+  ylab("Prevalence") + xlab(NULL) +
+  scale_x_date(date_labels="%Y", minor_breaks=quarters) +
+  geom_point(
+    data = prevalence,
+    size = 2.5
+  ) +
+  geom_errorbar(mapping=aes(ymin=LCI, ymax=UCI),
+    data=prevalence,
+    lty="dashed", width=75
+  )
 ggsave(file.path(subfolder, "Figure 0.pdf"), height=5, width=6)
 
 
 ## 1. Baseline
 baseline <- model$clone(deep=TRUE)
 baseline$run(10, frequency = 0)
-baseline$autoplot() #+ geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
+pt <- baseline$autoplot() +
+  # geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed") +
+  scale_x_date(minor_breaks=years)
+
+if(with_obs){
+  pt <- pt +
+    geom_point(
+      mapping = aes(x=Date, y=Outcome),
+      data = bind_rows(prevalence, pop),
+      size = 1.5
+    )
+}
+if(with_ci){
+  pt <- pt +
+    geom_errorbar(
+      mapping = aes(x=Date, y=Outcome, ymin=LCI, ymax=UCI),
+      data = bind_rows(prevalence, pop),
+      lty="dotted", width=0
+    )
+}
+pt #+ geom_vline(xintercept=as.Date(c("2026-06-01")), lty="dashed")
 ggsave(file.path(subfolder, "Figure 1.pdf"), height=6, width=6)
 
 # Or maybe:
@@ -69,7 +149,6 @@ phase1 |>
   slice(1L) ->
   optimums
 optimums
-# We end up with 1=>100%, 2=76%, 3=58%, 4=47%
 
 phase1 |>
   pivot_longer("Prevalence":"Koalas", names_to="Metric", values_to="Value") |>
@@ -225,7 +304,26 @@ ggsave(file.path(subfolder, "Figure 3b.pdf"), height=8, width=6)
 
 ## 4. Final scenario
 model$run(8, frequency = 2, prop_active = 0.45, prop_targeted = 0)
-model$autoplot() + geom_vline(xintercept=model$run_dates, lty="dashed")
+pt <- model$autoplot() +
+  geom_vline(xintercept=model$run_dates, lty="dashed") +
+  scale_x_date(minor_breaks=years)
+if(with_obs){
+  pt <- pt +
+    geom_point(
+      mapping = aes(x=Date, y=Outcome),
+      data = bind_rows(prevalence, pop),
+      size = 1.5
+    )
+}
+if(with_ci){
+  pt <- pt +
+    geom_errorbar(
+      mapping = aes(x=Date, y=Outcome, ymin=LCI, ymax=UCI),
+      data = bind_rows(prevalence, pop),
+      lty="dotted", width=0
+    )
+}
+#pt + geom_vline(xintercept=as.Date(c("2026-06-01")), lty="dashed")
 ggsave(file.path(subfolder, "Figure 4.pdf"), height=6, width=6)
 
 ff <- str_c("Figure ", c("0","1","2","2b","2c","3","3b","4"), ".pdf")

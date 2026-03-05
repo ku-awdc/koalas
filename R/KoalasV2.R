@@ -403,8 +403,8 @@ KoalasV2 <- R6::R6Class("KoalasV2",
       days <- as.numeric(as.Date("2022-07-01")-as.Date("2021-01-01"), units="days")
       self$update(n_days = days, d_time=d_time, record=FALSE)
 
-      ## Then get us to 1st October 2025:
-      newdays <- as.numeric(as.Date("2025-10-01") - self$date, units="days")
+      ## Then get us to 1st June 2026:
+      newdays <- as.numeric(as.Date("2026-06-01") - self$date, units="days")
       self$update(n_days = newdays, d_time=d_time, record=TRUE)
 
       invisible(self)

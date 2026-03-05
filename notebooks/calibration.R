@@ -52,7 +52,7 @@ model$results_wide |>
   geom_vline(xintercept=365, lty="dashed")
 
 
-## Population:
+## Observed population numbers:
 tribble(
   ~Date, ~Outcome, ~Source, ~LCI, ~UCI,
   "2022-07-01", 300, "Chad", 281, 569,
@@ -63,7 +63,7 @@ tribble(
   identity() ->
   population
 
-## Prevalence:
+## Observed prevalence estimates:
 tribble(
   ~Date, ~Positive, ~Total, ~Source,
   "2022-07-01", 2, 18, "Swab",
@@ -78,7 +78,7 @@ tribble(
   mutate(Date = as_date(Date), Outcome = Positive/Total*100) |>
   mutate(LCI = 100*qbeta(0.025, Positive+1, (Total-Positive)+1)) |>
   mutate(UCI = 100*qbeta(0.975, Positive+1, (Total-Positive)+1)) |>
-  mutate(Compartment = "Prevalence (%)") |>
+  mutate(Compartment = "Observed Prevalence (%)") |>
   identity() ->
   prevalence
 
@@ -113,7 +113,7 @@ model$results_long |>
     .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
-    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Infectious" ~ "Observed Prevalence (%)",
     Compartment=="Total" ~ "Total Koalas (N)",
   )) |>
   ggplot(aes(x=Date, y=Outcome)) +
@@ -157,7 +157,7 @@ model$results_long |>
     .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
-    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Infectious" ~ "Observed Prevalence (%)",
     Compartment=="Total" ~ "Total Koalas (N)",
   )) |>
   ggplot(aes(x=Date, y=Outcome)) +
@@ -209,7 +209,7 @@ model$results_long |>
     .default = Percent * sensitivity
   ), Source = "Model") |>
   mutate(Compartment = case_when(
-    Compartment=="Infectious" ~ "Prevalence (%)",
+    Compartment=="Infectious" ~ "Observed Prevalence (%)",
     Compartment=="Total" ~ "Total Koalas (N)",
   )) |>
   ggplot(aes(x=Date, y=Outcome)) +
