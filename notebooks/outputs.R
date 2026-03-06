@@ -45,8 +45,8 @@ tribble(
 # 4. 3-row graphs for: initial=4 x ~45%, later=2 x ~40%, 4 dashed lines
 
 ## Note: we were previously over-estimating mortality by 3x for V/N/I/R/A compartments
-scenario <- "worst"
 scenario <- "best"
+scenario <- "worst"
 #scenario <- "combined"
 
 with_obs <- TRUE
@@ -131,6 +131,21 @@ ggsave(file.path(subfolder, "Figure 1.pdf"), height=6, width=6)
 # Or maybe:
 baseline$autoplot(show_treatments=FALSE) +
   geom_vline(xintercept=as.Date(c("2022-07-01","2023-07-01","2025-07-01")), lty="dashed")
+
+# Extract output:
+baseline$results_wide |>
+  select("Date":"Rf") |>
+  mutate(Total = rowSums(across(-c("Date", "Day")))) |>
+  filter(row_number()<=2L | .data$Total > 0) |> # Remove rows with NA prevalence, but keep first 2 rows to make sure the plot is created
+  mutate(Sum = .data$I+.data$If+.data$Af+.data$Cf, Prevalence = .data$Sum/.data$Total * 100) |>
+  select("Date", "Population"="Total", "Prevalence") |>
+  filter(day(Date)==1) |>
+  left_join(
+    baseline$treatments |> pivot_wider(names_from="Type", values_from="Cumulative"),
+    join_by(Date)
+  ) |>
+  identity() ->
+  baseline_output
 
 
 ## 2. Initial phase
@@ -325,6 +340,25 @@ if(with_ci){
 }
 #pt + geom_vline(xintercept=as.Date(c("2026-06-01")), lty="dashed")
 ggsave(file.path(subfolder, "Figure 4.pdf"), height=6, width=6)
+
+model$results_wide |>
+  select("Date":"Rf") |>
+  mutate(Total = rowSums(across(-c("Date", "Day")))) |>
+  filter(row_number()<=2L | .data$Total > 0) |> # Remove rows with NA prevalence, but keep first 2 rows to make sure the plot is created
+  mutate(Sum = .data$I+.data$If+.data$Af+.data$Cf, Prevalence = .data$Sum/.data$Total * 100) |>
+  select("Date", "Population"="Total", "Prevalence") |>
+  filter(day(Date)==1) |>
+  left_join(
+    model$treatments |> pivot_wider(names_from="Type", values_from="Cumulative"),
+    join_by(Date)
+  ) |>
+  identity() ->
+  final_output
+
+writexl::write_xlsx(
+  list(baseline=baseline_output, interventions=final_output),
+  file.path(subfolder, str_c("output_", scenario, ".xlsx"))
+)
 
 ff <- str_c("Figure ", c("0","1","2","2b","2c","3","3b","4"), ".pdf")
 (cmd <- str_c("gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=", file.path(subfolder,str_c(nn,".pdf")), " ", str_c("'", file.path(subfolder,ff), "'", collapse=" ")))
