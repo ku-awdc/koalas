@@ -7,55 +7,56 @@
 This is the "V2" model that has substantial differences to the Grogan et al model (\code{\link{KoalasV1}})
 }
 \section{Active bindings}{
-\if{html}{\out{<div class="r6-active-bindings">}}
-\describe{
-\item{\code{date}}{the current date of the model (read-only)}
+  \if{html}{\out{<div class="r6-active-bindings">}}
+  \describe{
+    \item{\code{date}}{the current date of the model (read-only)}
 
-\item{\code{day}}{the current day number of the model (read-only)}
+    \item{\code{day}}{the current day number of the model (read-only)}
 
-\item{\code{N}}{the total number of animals alive (read-only)}
+    \item{\code{N}}{the total number of animals alive (read-only)}
 
-\item{\code{prevalence}}{the current prevalence (read-only)}
+    \item{\code{prevalence}}{the current prevalence (read-only)}
 
-\item{\code{state}}{a list representing the current state of the model}
+    \item{\code{state}}{a list representing the current state of the model}
 
-\item{\code{parameters}}{a list of parameter values}
+    \item{\code{parameters}}{a list of parameter values}
 
-\item{\code{results_wide}}{a data frame of results from the model in wide format (read-only)}
+    \item{\code{results_wide}}{a data frame of results from the model in wide format (read-only)}
 
-\item{\code{results_long}}{a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)}
+    \item{\code{results_long}}{a data frame of results from the model in long format, with aggregated/summarised compartments (read-only)}
 
-\item{\code{interventions}}{a data frame of intervention time points from the model (read-only)}
+    \item{\code{interventions}}{a data frame of intervention time points from the model (read-only)}
 
-\item{\code{run_dates}}{a date vector of dates when run was called, which might be useful for e.g. adding dashed lines to plots (read-only)}
+    \item{\code{run_dates}}{a date vector of dates when run was called, which might be useful for e.g. adding dashed lines to plots (read-only)}
 
-\item{\code{treatments}}{a data frame of cumulative treatments and vaccinations from the model (read-only)}
-}
-\if{html}{\out{</div>}}
+    \item{\code{treatments}}{a data frame of cumulative treatments and vaccinations from the model (read-only)}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-KoalasV2-new}{\code{KoalasV2$new()}}
-\item \href{#method-KoalasV2-set_parameters}{\code{KoalasV2$set_parameters()}}
-\item \href{#method-KoalasV2-set_state}{\code{KoalasV2$set_state()}}
-\item \href{#method-KoalasV2-update}{\code{KoalasV2$update()}}
-\item \href{#method-KoalasV2-active_intervention}{\code{KoalasV2$active_intervention()}}
-\item \href{#method-KoalasV2-targeted_intervention}{\code{KoalasV2$targeted_intervention()}}
-\item \href{#method-KoalasV2-burnin}{\code{KoalasV2$burnin()}}
-\item \href{#method-KoalasV2-run}{\code{KoalasV2$run()}}
-\item \href{#method-KoalasV2-print}{\code{KoalasV2$print()}}
-\item \href{#method-KoalasV2-autoplot}{\code{KoalasV2$autoplot()}}
-\item \href{#method-KoalasV2-clone}{\code{KoalasV2$clone()}}
-}
+  \itemize{
+    \item \href{#method-KoalasV2-initialize}{\code{KoalasV2$new()}}
+    \item \href{#method-KoalasV2-set_parameters}{\code{KoalasV2$set_parameters()}}
+    \item \href{#method-KoalasV2-set_state}{\code{KoalasV2$set_state()}}
+    \item \href{#method-KoalasV2-update}{\code{KoalasV2$update()}}
+    \item \href{#method-KoalasV2-active_intervention}{\code{KoalasV2$active_intervention()}}
+    \item \href{#method-KoalasV2-targeted_intervention}{\code{KoalasV2$targeted_intervention()}}
+    \item \href{#method-KoalasV2-burnin}{\code{KoalasV2$burnin()}}
+    \item \href{#method-KoalasV2-run}{\code{KoalasV2$run()}}
+    \item \href{#method-KoalasV2-print}{\code{KoalasV2$print()}}
+    \item \href{#method-KoalasV2-autoplot}{\code{KoalasV2$autoplot()}}
+    \item \href{#method-KoalasV2-clone}{\code{KoalasV2$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-KoalasV2-new"></a>}}
-\if{latex}{\out{\hypertarget{method-KoalasV2-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new single-group koala model
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$new(
+\if{html}{\out{<a id="method-KoalasV2-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV2-initialize}{}}}
+\subsection{\code{KoalasV2$new()}}{
+  Create a new single-group koala model
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$new(
   num = 3L,
   num_V = num,
   num_I = num,
@@ -65,43 +66,37 @@ Create a new single-group koala model
   parameters = list(),
   state = list(),
   start_date = "2021-01-01"
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{num}}{number of sub-components for all states (unless overridden) - currently must be either 1 or 3}
+      \item{\code{num_V}}{number of sub-components for V (and Vf)}
+      \item{\code{num_I}}{number of sub-components for I (and If)}
+      \item{\code{num_N}}{number of sub-components for N (and Nf)}
+      \item{\code{num_R}}{number of sub-components for R (and Rf)}
+      \item{\code{num_A}}{number of sub-components for Af}
+      \item{\code{parameters}}{a list of parameter values - see the set_parameters method for the allowed values}
+      \item{\code{state}}{an initialisation state list - see the set_state method for the allowed values}
+      \item{\code{start_date}}{the date corresponding to day 0 of the simulation (only used for outputs)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new within-group model object
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{num}}{number of sub-components for all states (unless overridden) - currently must be either 1 or 3}
-
-\item{\code{num_V}}{number of sub-components for V (and Vf)}
-
-\item{\code{num_I}}{number of sub-components for I (and If)}
-
-\item{\code{num_N}}{number of sub-components for N (and Nf)}
-
-\item{\code{num_R}}{number of sub-components for R (and Rf)}
-
-\item{\code{num_A}}{number of sub-components for Af}
-
-\item{\code{parameters}}{a list of parameter values - see the set_parameters method for the allowed values}
-
-\item{\code{state}}{an initialisation state list - see the set_state method for the allowed values}
-
-\item{\code{start_date}}{the date corresponding to day 0 of the simulation (only used for outputs)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new within-group model object
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-set_parameters"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-set_parameters}{}}}
-\subsection{Method \code{set_parameters()}}{
-Change one or more current parameter values
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$set_parameters(
+\subsection{\code{KoalasV2$set_parameters()}}{
+  Change one or more current parameter values
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$set_parameters(
   vacc_immune_duration,
   vacc_redshed_duration,
   natural_immune_duration,
@@ -124,69 +119,50 @@ Change one or more current parameter values
   vaccine_efficacy,
   vaccine_booster,
   passive_intervention_rate
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{vacc_immune_duration}}{#1: Average duration of vaccine-related immunity from infection for susceptibles}
+      \item{\code{vacc_redshed_duration}}{#2: Average duration of treatment/vaccine-related reduction in shedding for infecteds, relative to #1}
+      \item{\code{natural_immune_duration}}{#3:  Average duration of natural immunity following resolved infection , relative to #1}
+      \item{\code{beta}}{#4:  Infection rate (frequency dependent)}
+      \item{\code{subcinical_duration}}{#5:  Average duration of subclinical infection before progression to “acute” disease OR spontaneous recovery}
+      \item{\code{subclinical_recover_proportion}}{#6:  Proportion of animals that will spontaneously recover, rather than progressing to acute disease}
+      \item{\code{diseased_recover_proportion}}{#7:  Spontaneous recovery rate for diseased animals  – ASSUMED DOES NOT HAPPEN SO MUST BE ZERO}
+      \item{\code{birthrate}}{#8:  Birth rate (assumed not density-dependent, for now)}
+      \item{\code{acute_duration}}{#9:  Average duration of acute (increased mortality) phase before progressing to chronic (normal mortality) phase}
+      \item{\code{lifespan_natural}}{#10:  Average lifespan of uninfected koalas (assumed not density-dependent, for now)}
+      \item{\code{lifespan_acute}}{#11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25\% die before entering Cf}
+      \item{\code{lifespan_chronic}}{#11:  Disease-related mortality rate (replacement for #10)}
+      \item{\code{relative_fecundity}}{#12:  Relative fecundity of diseased animals - NOTE: we ignore males as only females are important for reproduction}
+      \item{\code{sensitivity}}{sensitivity of lab test to detect shedding in I(f), Af, Cf}
+      \item{\code{specificity}}{specificity of lab test to not detect shedding in other compartments}
+      \item{\code{cure_prob_N}}{proportion of N(f) animals with a completed treatment course that are cured of infection (go to R(f))}
+      \item{\code{cure_prob_I}}{proportion of I(f) animals with a completed treatment course that are cured of infection (go to R(f))}
+      \item{\code{cure_prob_A}}{proportion of Af animals with a completed treatment course that are cured of infection (go to Rf)}
+      \item{\code{cure_prob_C}}{proportion of Cf animals with a completed treatment course that are cured of infection (go to Rf)}
+      \item{\code{vaccine_efficacy}}{proportion of S(f) animals that have effective vaccination i.e. go to V(f)}
+      \item{\code{vaccine_booster}}{proportion of already-vaccinated/immune animals that re-start their time in that category due to the “booster effect” i.e. V(f), N(f), and R(f)}
+      \item{\code{passive_intervention_rate}}{rate at which animals are brought in for test/treatment/vaccination passively (can be interpreted as the expected number of times per year each animal is brought in)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{vacc_immune_duration}}{#1: Average duration of vaccine-related immunity from infection for susceptibles}
-
-\item{\code{vacc_redshed_duration}}{#2: Average duration of treatment/vaccine-related reduction in shedding for infecteds, relative to #1}
-
-\item{\code{natural_immune_duration}}{#3:  Average duration of natural immunity following resolved infection , relative to #1}
-
-\item{\code{beta}}{#4:  Infection rate (frequency dependent)}
-
-\item{\code{subcinical_duration}}{#5:  Average duration of subclinical infection before progression to “acute” disease OR spontaneous recovery}
-
-\item{\code{subclinical_recover_proportion}}{#6:  Proportion of animals that will spontaneously recover, rather than progressing to acute disease}
-
-\item{\code{diseased_recover_proportion}}{#7:  Spontaneous recovery rate for diseased animals  – ASSUMED DOES NOT HAPPEN SO MUST BE ZERO}
-
-\item{\code{birthrate}}{#8:  Birth rate (assumed not density-dependent, for now)}
-
-\item{\code{acute_duration}}{#9:  Average duration of acute (increased mortality) phase before progressing to chronic (normal mortality) phase}
-
-\item{\code{lifespan_natural}}{#10:  Average lifespan of uninfected koalas (assumed not density-dependent, for now)}
-
-\item{\code{lifespan_acute}}{#11:  Disease-related mortality rate (replacement for #10) - default is calibrated so that 25\% die before entering Cf}
-
-\item{\code{lifespan_chronic}}{#11:  Disease-related mortality rate (replacement for #10)}
-
-\item{\code{relative_fecundity}}{#12:  Relative fecundity of diseased animals - NOTE: we ignore males as only females are important for reproduction}
-
-\item{\code{sensitivity}}{sensitivity of lab test to detect shedding in I(f), Af, Cf}
-
-\item{\code{specificity}}{specificity of lab test to not detect shedding in other compartments}
-
-\item{\code{cure_prob_N}}{proportion of N(f) animals with a completed treatment course that are cured of infection (go to R(f))}
-
-\item{\code{cure_prob_I}}{proportion of I(f) animals with a completed treatment course that are cured of infection (go to R(f))}
-
-\item{\code{cure_prob_A}}{proportion of Af animals with a completed treatment course that are cured of infection (go to Rf)}
-
-\item{\code{cure_prob_C}}{proportion of Cf animals with a completed treatment course that are cured of infection (go to Rf)}
-
-\item{\code{vaccine_efficacy}}{proportion of S(f) animals that have effective vaccination i.e. go to V(f)}
-
-\item{\code{vaccine_booster}}{proportion of already-vaccinated/immune animals that re-start their time in that category due to the “booster effect” i.e. V(f), N(f), and R(f)}
-
-\item{\code{passive_intervention_rate}}{rate at which animals are brought in for test/treatment/vaccination passively (can be interpreted as the expected number of times per year each animal is brought in)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-set_state"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-set_state}{}}}
-\subsection{Method \code{set_state()}}{
-Change one or more current state values
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$set_state(
+\subsection{\code{KoalasV2$set_state()}}{
+  Change one or more current state values
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$set_state(
   S,
   V,
   I,
@@ -204,217 +180,199 @@ Change one or more current state values
   SumVx,
   SumRx,
   SumMx
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{S}}{number of S}
+      \item{\code{V}}{number of V}
+      \item{\code{I}}{number of I}
+      \item{\code{N}}{number of N}
+      \item{\code{R}}{number of R}
+      \item{\code{Af}}{number of Af}
+      \item{\code{Cf}}{number of Cf}
+      \item{\code{Sf}}{number of Sf}
+      \item{\code{Vf}}{number of Vf}
+      \item{\code{If}}{number of If}
+      \item{\code{Nf}}{number of Nf}
+      \item{\code{Rf}}{number of Rf}
+      \item{\code{Day}}{current day of the simulation (you probably shouldn't change this)}
+      \item{\code{SumTx}}{cumulative total number of animals with a successful treatment course (you probably shouldn't change this)}
+      \item{\code{SumVx}}{cumulative total number of animals vaccinated - this excludes the animals also treated (you probably shouldn't change this)}
+      \item{\code{SumRx}}{cumulative total number of animals removed due to voluntary culling and failure to cure (you probably shouldn't change this)}
+      \item{\code{SumMx}}{cumulative mortality due to disease excluding SumRx (you probably shouldn't change this)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{S}}{number of S}
-
-\item{\code{V}}{number of V}
-
-\item{\code{I}}{number of I}
-
-\item{\code{N}}{number of N}
-
-\item{\code{R}}{number of R}
-
-\item{\code{Af}}{number of Af}
-
-\item{\code{Cf}}{number of Cf}
-
-\item{\code{Sf}}{number of Sf}
-
-\item{\code{Vf}}{number of Vf}
-
-\item{\code{If}}{number of If}
-
-\item{\code{Nf}}{number of Nf}
-
-\item{\code{Rf}}{number of Rf}
-
-\item{\code{Day}}{current day of the simulation (you probably shouldn't change this)}
-
-\item{\code{SumTx}}{cumulative total number of animals with a successful treatment course (you probably shouldn't change this)}
-
-\item{\code{SumVx}}{cumulative total number of animals vaccinated - this excludes the animals also treated (you probably shouldn't change this)}
-
-\item{\code{SumRx}}{cumulative total number of animals removed due to voluntary culling and failure to cure (you probably shouldn't change this)}
-
-\item{\code{SumMx}}{cumulative mortality due to disease excluding SumRx (you probably shouldn't change this)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-update"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-update}{}}}
-\subsection{Method \code{update()}}{
-Update the model for one or more day
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$update(n_days = 1L, d_time = 1/24, record = TRUE)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV2$update()}}{
+  Update the model for one or more day
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$update(n_days = 1L, d_time = 1/24, record = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{n_days}}{the number of days to update for}
+      \item{\code{d_time}}{the desired time step (delta time)}
+      \item{\code{record}}{should the state over time be recorded?}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{n_days}}{the number of days to update for}
-
-\item{\code{d_time}}{the desired time step (delta time)}
-
-\item{\code{record}}{should the state over time be recorded?}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-active_intervention"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-active_intervention}{}}}
-\subsection{Method \code{active_intervention()}}{
-Implement a (one-time) active sampling/capture/testing of all animals
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$active_intervention(
+\subsection{\code{KoalasV2$active_intervention()}}{
+  Implement a (one-time) active sampling/capture/testing of all animals
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$active_intervention(
   proportion,
   cull_positive = 0,
   cull_acute = 0.2,
   cull_chronic = 0.3
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{proportion}}{the proportion of animals to test/treat/vaccinate}
+      \item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
+      \item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
+      \item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{proportion}}{the proportion of animals to test/treat/vaccinate}
-
-\item{\code{cull_positive}}{the proportion of test-positive animals that will be culled}
-
-\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
-
-\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-targeted_intervention"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-targeted_intervention}{}}}
-\subsection{Method \code{targeted_intervention()}}{
-Implement a (one-time) targeted capture/treatment of diseased animals
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$targeted_intervention(
+\subsection{\code{KoalasV2$targeted_intervention()}}{
+  Implement a (one-time) targeted capture/treatment of diseased animals
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$targeted_intervention(
   proportion,
   prop_acute = proportion,
   prop_chronic = proportion,
   cull_positive = 0,
   cull_acute = 0.2,
   cull_chronic = 0.3
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{proportion}}{the proportion of diseased animals to identify and treat (overridden by prop_acute and/or prop_chronic, if set)}
+      \item{\code{prop_acute}}{the proportion of acutely diseased animals to identify and treat (overrides proportion)}
+      \item{\code{prop_chronic}}{the proportion of chronic diseased animals to identify and treat (overrides proportion)}
+      \item{\code{cull_positive}}{this parameter is ignored (it is only provided for compatibility with the run method)}
+      \item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
+      \item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{proportion}}{the proportion of diseased animals to identify and treat (overridden by prop_acute and/or prop_chronic, if set)}
-
-\item{\code{prop_acute}}{the proportion of acutely diseased animals to identify and treat (overrides proportion)}
-
-\item{\code{prop_chronic}}{the proportion of chronic diseased animals to identify and treat (overrides proportion)}
-
-\item{\code{cull_positive}}{this parameter is ignored (it is only provided for compatibility with the run method)}
-
-\item{\code{cull_acute}}{the proportion of acute diseased animals that will be culled}
-
-\item{\code{cull_chronic}}{the proportion of chronic diseased animals that will be culled}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-burnin"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-burnin}{}}}
-\subsection{Method \code{burnin()}}{
-Set and burn-in the model for standard scenarios (with current parameters)
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$burnin(scenario = c("worst", "best", "combined"), d_time = 1/24)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV2$burnin()}}{
+  Set and burn-in the model for standard scenarios (with current parameters)
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$burnin(scenario = c("worst", "best", "combined"), d_time = 1/24)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{scenario}}{the desired population scenario for calibration (worst case, best case, or combined)}
+      \item{\code{d_time}}{the desired time step (delta time)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{scenario}}{the desired population scenario for calibration (worst case, best case, or combined)}
-
-\item{\code{d_time}}{the desired time step (delta time)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-run"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-run}{}}}
-\subsection{Method \code{run()}}{
-Run the model for 1 or more years with the standard scenarios
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$run(
+\subsection{\code{KoalasV2$run()}}{
+  Run the model for 1 or more years with the standard scenarios
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$run(
   years,
   frequency,
   prop_active = 0,
   prop_targeted = 0,
   d_time = 1/24,
   ...
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{years}}{the number of years to run for}
+      \item{\code{frequency}}{the number of sampling events per year}
+      \item{\code{prop_active}}{the proportion of animals to test/treat/vaccinate with active sampling at each intervention}
+      \item{\code{prop_targeted}}{the proportion of diseased animals to treat with targeted interventions at each intervention}
+      \item{\code{d_time}}{the desired time step (delta time)}
+      \item{\code{...}}{additional arguments (cull proportions) passed to the active_intervention method}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{years}}{the number of years to run for}
-
-\item{\code{frequency}}{the number of sampling events per year}
-
-\item{\code{prop_active}}{the proportion of animals to test/treat/vaccinate with active sampling at each intervention}
-
-\item{\code{prop_targeted}}{the proportion of diseased animals to treat with targeted interventions at each intervention}
-
-\item{\code{d_time}}{the desired time step (delta time)}
-
-\item{\code{...}}{additional arguments (cull proportions) passed to the active_intervention method}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-print"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-print}{}}}
-\subsection{Method \code{print()}}{
-Print method giving an overview of the current state and parameter values
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$print()}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV2$print()}}{
+  Print method giving an overview of the current state and parameter values
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$print()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-autoplot"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-autoplot}{}}}
-\subsection{Method \code{autoplot()}}{
-autoplot method for a default plot
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$autoplot(
+\subsection{\code{KoalasV2$autoplot()}}{
+  autoplot method for a default plot
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$autoplot(
   show_treatments = TRUE,
   prev_line = 5,
   number_line = NULL,
@@ -423,47 +381,44 @@ autoplot method for a default plot
   colours = c(Diseased = "#F8766D", Infectious = "#F9C945", Healthy = "#619CFF",
     Treatment = "forestgreen", Prevalence = "black"),
   dot_col = "grey50"
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{show_treatments}}{option to show/hide treatments}
+      \item{\code{prev_line}}{an optional dotted line for target prevalence}
+      \item{\code{number_line}}{an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size}
+      \item{\code{ymax}}{a named numeric vector of maximum values for the y axis}
+      \item{\code{alphas}}{a named numeric vector of alpha values for each subplot}
+      \item{\code{colours}}{a named numeric vector of colour values for each subplot/compartment}
+      \item{\code{dot_col}}{the colour to use for the dotted prevalence and number lines}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    a ggplot2 object
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{show_treatments}}{option to show/hide treatments}
-
-\item{\code{prev_line}}{an optional dotted line for target prevalence}
-
-\item{\code{number_line}}{an optional dotted line for a target stable (or starting) population size - NULL means to use the starting population size}
-
-\item{\code{ymax}}{a named numeric vector of maximum values for the y axis}
-
-\item{\code{alphas}}{a named numeric vector of alpha values for each subplot}
-
-\item{\code{colours}}{a named numeric vector of colour values for each subplot/compartment}
-
-\item{\code{dot_col}}{the colour to use for the dotted prevalence and number lines}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-a ggplot2 object
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV2-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV2-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV2$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV2$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV2$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

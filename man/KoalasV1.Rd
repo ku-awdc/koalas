@@ -10,241 +10,245 @@ Note: D is not a real state (and can be negative), it is just used to ensure
 that the books are balanced including birth/death
 }
 \section{Active bindings}{
-\if{html}{\out{<div class="r6-active-bindings">}}
-\describe{
-\item{\code{S}}{number of susceptible animals}
+  \if{html}{\out{<div class="r6-active-bindings">}}
+  \describe{
+    \item{\code{S}}{number of susceptible animals}
 
-\item{\code{I}}{total number of infected animals}
+    \item{\code{I}}{total number of infected animals}
 
-\item{\code{D}}{number of diseased animals}
+    \item{\code{D}}{number of diseased animals}
 
-\item{\code{R}}{number of recovered animals}
+    \item{\code{R}}{number of recovered animals}
 
-\item{\code{V}}{number of vaccinated animals}
+    \item{\code{V}}{number of vaccinated animals}
 
-\item{\code{Ctp}}{cumulative number of animals removed as true positives on active/passive sampling}
+    \item{\code{Ctp}}{cumulative number of animals removed as true positives on active/passive sampling}
 
-\item{\code{Cfp}}{cumulative number of animals removed as false positives on active/passive sampling}
+    \item{\code{Cfp}}{cumulative number of animals removed as false positives on active/passive sampling}
 
-\item{\code{mortality_natural}}{mortality rate from natural causes}
+    \item{\code{mortality_natural}}{mortality rate from natural causes}
 
-\item{\code{mortality_disease}}{mortality rate from disease}
+    \item{\code{mortality_disease}}{mortality rate from disease}
 
-\item{\code{carrying_capacity}}{number of animals supported by the population (can be Inf or NA)}
+    \item{\code{carrying_capacity}}{number of animals supported by the population (can be Inf or NA)}
 
-\item{\code{birth_rate}}{birth rate}
+    \item{\code{birth_rate}}{birth rate}
 
-\item{\code{relative_fecundity}}{fecundity of diseased animals relative to other states (S/I/R/V)}
+    \item{\code{relative_fecundity}}{fecundity of diseased animals relative to other states (S/I/R/V)}
 
-\item{\code{beta}}{the transmission rate parameter per unit time (must be positive)}
+    \item{\code{beta}}{the transmission rate parameter per unit time (must be positive)}
 
-\item{\code{sigma}}{the progression rate from I to D or S}
+    \item{\code{sigma}}{the progression rate from I to D or S}
 
-\item{\code{acute_recovery_prob}}{the probability that a progression from I will go to S rather than D}
+    \item{\code{acute_recovery_prob}}{the probability that a progression from I will go to S rather than D}
 
-\item{\code{recovery}}{the recovery rate parameter per unit time (must be positive)}
+    \item{\code{recovery}}{the recovery rate parameter per unit time (must be positive)}
 
-\item{\code{waning_natural}}{the immune waning rate from R (following natural infection)}
+    \item{\code{waning_natural}}{the immune waning rate from R (following natural infection)}
 
-\item{\code{waning_vaccine}}{the immune waning rate from V (following vaccination)}
+    \item{\code{waning_vaccine}}{the immune waning rate from V (following vaccination)}
 
-\item{\code{time}}{the current time point of the model (read-only)}
+    \item{\code{time}}{the current time point of the model (read-only)}
 
-\item{\code{N}}{the total number of animals alive (read-only)}
+    \item{\code{N}}{the total number of animals alive (read-only)}
 
-\item{\code{state}}{a data frame representing the current state of the model (read-only)}
+    \item{\code{state}}{a data frame representing the current state of the model (read-only)}
 
-\item{\code{trans_external}}{the external transmission parameter}
+    \item{\code{trans_external}}{the external transmission parameter}
 
-\item{\code{transmission_type}}{either frequency or density}
-}
-\if{html}{\out{</div>}}
+    \item{\code{transmission_type}}{either frequency or density}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-KoalasV1-new}{\code{KoalasV1$new()}}
-\item \href{#method-KoalasV1-update}{\code{KoalasV1$update()}}
-\item \href{#method-KoalasV1-run}{\code{KoalasV1$run()}}
-\item \href{#method-KoalasV1-vaccinate}{\code{KoalasV1$vaccinate()}}
-\item \href{#method-KoalasV1-active_test}{\code{KoalasV1$active_test()}}
-\item \href{#method-KoalasV1-passive_test}{\code{KoalasV1$passive_test()}}
-\item \href{#method-KoalasV1-print}{\code{KoalasV1$print()}}
-\item \href{#method-KoalasV1-clone}{\code{KoalasV1$clone()}}
-}
+  \itemize{
+    \item \href{#method-KoalasV1-initialize}{\code{KoalasV1$new()}}
+    \item \href{#method-KoalasV1-update}{\code{KoalasV1$update()}}
+    \item \href{#method-KoalasV1-run}{\code{KoalasV1$run()}}
+    \item \href{#method-KoalasV1-vaccinate}{\code{KoalasV1$vaccinate()}}
+    \item \href{#method-KoalasV1-active_test}{\code{KoalasV1$active_test()}}
+    \item \href{#method-KoalasV1-passive_test}{\code{KoalasV1$passive_test()}}
+    \item \href{#method-KoalasV1-print}{\code{KoalasV1$print()}}
+    \item \href{#method-KoalasV1-clone}{\code{KoalasV1$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-KoalasV1-new"></a>}}
-\if{latex}{\out{\hypertarget{method-KoalasV1-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new within-group model
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$new(
+\if{html}{\out{<a id="method-KoalasV1-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-KoalasV1-initialize}{}}}
+\subsection{\code{KoalasV1$new()}}{
+  Create a new within-group model
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$new(
   update_type = c("deterministic", "stochastic"),
   group_name = NA_character_
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{update_type}}{one of deterministic or stochastic}
+      \item{\code{group_name}}{an optional name for the group (will be included in the output state, if provided)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new within-group model object
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{update_type}}{one of deterministic or stochastic}
-
-\item{\code{group_name}}{an optional name for the group (will be included in the output state, if provided)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new within-group model object
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-update"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-update}{}}}
-\subsection{Method \code{update()}}{
-Update the state of the group for a single time point
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$update(d_time)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$update()}}{
+  Update the state of the group for a single time point
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$update(d_time)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{d_time}}{the desired time step (delta time)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{d_time}}{the desired time step (delta time)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-run"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-run}{}}}
-\subsection{Method \code{run()}}{
-Update the state of the group for several time points
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$run(add_time, d_time, thin = 1)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$run()}}{
+  Update the state of the group for several time points
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$run(add_time, d_time, thin = 1)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{add_time}}{the additional time to add to the current time of the model}
+      \item{\code{d_time}}{the desired time step (delta time)}
+      \item{\code{thin}}{thinning parameter (currently ignored)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    a data frame of the model state at each (new) time point
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{add_time}}{the additional time to add to the current time of the model}
-
-\item{\code{d_time}}{the desired time step (delta time)}
-
-\item{\code{thin}}{thinning parameter (currently ignored)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-a data frame of the model state at each (new) time point
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-vaccinate"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-vaccinate}{}}}
-\subsection{Method \code{vaccinate()}}{
-Implement a (one-time) vaccination effort at the current time point
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$vaccinate(number, proportion, efficacy)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$vaccinate()}}{
+  Implement a (one-time) vaccination effort at the current time point
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$vaccinate(number, proportion, efficacy)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{number}}{the (maximum) number of animals to vaccinate (ignored if proportion is supplied)}
+      \item{\code{proportion}}{the proportion of animals to vaccinate}
+      \item{\code{efficacy}}{the efficacy of the vaccine i.e. probability of the animal moving to V (from S, I or D - R and V do not move)}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{number}}{the (maximum) number of animals to vaccinate (ignored if proportion is supplied)}
-
-\item{\code{proportion}}{the proportion of animals to vaccinate}
-
-\item{\code{efficacy}}{the efficacy of the vaccine i.e. probability of the animal moving to V (from S, I or D - R and V do not move)}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-active_test"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-active_test}{}}}
-\subsection{Method \code{active_test()}}{
-Implement a (one-time) active sampling/capture/testing of all animals
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$active_test(number, proportion, sensitivity, specificity)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$active_test()}}{
+  Implement a (one-time) active sampling/capture/testing of all animals
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$active_test(number, proportion, sensitivity, specificity)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
+      \item{\code{proportion}}{the proportion of animals to test and remove}
+      \item{\code{sensitivity}}{the sensitivity of the test}
+      \item{\code{specificity}}{the specificity of the test}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
-
-\item{\code{proportion}}{the proportion of animals to test and remove}
-
-\item{\code{sensitivity}}{the sensitivity of the test}
-
-\item{\code{specificity}}{the specificity of the test}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-passive_test"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-passive_test}{}}}
-\subsection{Method \code{passive_test()}}{
-Implement a (one-time) passive sampling/capture/testing of diseased animals
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$passive_test(
+\subsection{\code{KoalasV1$passive_test()}}{
+  Implement a (one-time) passive sampling/capture/testing of diseased animals
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$passive_test(
   number,
   proportion,
   sensitivity,
   specificity,
   prevalence_other
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
+      \item{\code{proportion}}{the proportion of animals to test and remove}
+      \item{\code{sensitivity}}{the sensitivity of the test}
+      \item{\code{specificity}}{the specificity of the test}
+      \item{\code{prevalence_other}}{the prevalence of other conditions that resemble clinical disease}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{number}}{the (maximum) number of animals to test and remove (ignored if proportion is supplied)}
-
-\item{\code{proportion}}{the proportion of animals to test and remove}
-
-\item{\code{sensitivity}}{the sensitivity of the test}
-
-\item{\code{specificity}}{the specificity of the test}
-
-\item{\code{prevalence_other}}{the prevalence of other conditions that resemble clinical disease}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-print"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-print}{}}}
-\subsection{Method \code{print()}}{
-Print method giving an overview of the current state and parameter values
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$print()}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$print()}}{
+  Print method giving an overview of the current state and parameter values
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$print()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self, invisibly
+  }
 }
 
-\subsection{Returns}{
-self, invisibly
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-KoalasV1-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-KoalasV1-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{KoalasV1$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{KoalasV1$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{KoalasV1$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }
