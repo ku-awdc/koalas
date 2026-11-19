@@ -57,6 +57,7 @@ tribble(
   ~Date, ~Outcome, ~Source, ~LCI, ~UCI,
   "2022-07-01", 300, "Chad", 281, 569,
   "2025-07-01", 107, "Lachlan", 95, 123,
+  "2026-10-01", 141, "Program 2026", NA, NA,
 ) |>
   mutate(Date = as_date(Date)) |>
   mutate(Compartment = "Total Koalas (N)") |>
@@ -74,6 +75,7 @@ tribble(
   "2021-07-01", 5, 11, "Scat",
   "2023-07-01", 10, 14, "Scat",
   "2025-07-01", 2, 16, "Scat",
+  "2026-10-01", 31, 64, "Catching",
 ) |>
   mutate(Date = as_date(Date), Outcome = Positive/Total*100) |>
   mutate(LCI = 100*qbeta(0.025, Positive+1, (Total-Positive)+1)) |>
@@ -102,7 +104,7 @@ model$set_parameters(
   beta = 2.69
 )
 
-model$update(365*5)
+model$update(365*6)
 model$results_long |> filter(Date=="2022-07-01", Compartment=="Total") |> pull(Koalas)
 population |> filter(Date=="2022-07-01")
 
@@ -134,8 +136,8 @@ model$results_long |>
 
 ## Calibration for best case scenario:
 model <- KoalasV2$new(start_date="2021-01-01")
-prev <- 0.009
-N <- 61
+prev <- 0.04
+N <- 70
 model$set_state(
   S = N * (1.0-prev),
   I = N * prev
@@ -143,9 +145,9 @@ model$set_state(
 model$set_parameters(
   acute_duration = 0.40,
   lifespan_acute = 1.4,
-  beta = 2.69
+  beta = 1.8
 )
-model$update(365*5)
+model$update(365*6)
 
 model$results_long |> filter(Date=="2025-07-01", Compartment=="Total") |> pull(Koalas)
 population |> filter(Date=="2025-07-01")
@@ -193,7 +195,7 @@ model$set_parameters(
   subclinical_recover_proportion = 0,  # 0.35
   beta = 2.22  # 2.64
 )
-model$update(365*5)
+model$update(365*6)
 
 model$results_long |>
   inner_join(population |> select(Date, Outcome),
